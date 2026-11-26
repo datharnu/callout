@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { interpret, type VoiceCommand, type VoiceContext } from '../src/voice/commands.js'
+import { interpretAll, type VoiceCommand, type VoiceContext } from '../src/voice/commands.js'
 import { transcribe } from '../src/voice/stt.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -19,8 +19,8 @@ const countdown: VoiceContext = { state: 'countdown', action: 'open', entry: 604
 const holding: VoiceContext = { state: 'holding', action: 'close', entry: null }
 const result: VoiceContext = { state: 'filled', action: 'open', entry: 60400 }
 
-/** expected: a command, or null = must NOT produce any command. */
-const CASES: { phrase: string; ctx: VoiceContext; expected: VoiceCommand | null }[] = [
+/** expected: the command(s), or null = must NOT produce any command. */
+const CASES: { phrase: string; ctx: VoiceContext; expected: VoiceCommand | VoiceCommand[] | null }[] = [
   { phrase: 'half size', ctx: ready, expected: { type: 'size', factor: 0.5 } },
   { phrase: 'half', ctx: ready, expected: { type: 'size', factor: 0.5 } },
   { phrase: 'full size', ctx: ready, expected: { type: 'size', factor: 1 } },
@@ -45,6 +45,9 @@ const CASES: { phrase: string; ctx: VoiceContext; expected: VoiceCommand | null 
   { phrase: 'hold', ctx: holding, expected: { type: 'keep' } },
   { phrase: 'okay', ctx: result, expected: { type: 'dismiss' } },
   { phrase: 'continue', ctx: result, expected: { type: 'dismiss' } },
+  // Several commands in one breath.
+  { phrase: 'half size, set stop fifty nine thousand', ctx: ready, expected: [{ type: 'size', factor: 0.5 }, { type: 'set_stop', price: 59000 }] },
+  { phrase: 'set stop fifty nine point five K and place it', ctx: ready, expected: [{ type: 'set_stop', price: 59500 }, { type: 'place' }] },
   // Negatives: must not produce any command.
   { phrase: 'what do you think about this one', ctx: ready, expected: null },
   { phrase: 'the market is crazy today', ctx: ready, expected: null },
@@ -62,9 +65,10 @@ function speak(phrase: string, voice: string, i: number): Buffer {
   return buf.subarray(buf.indexOf('data') + 8)
 }
 
-const same = (a: VoiceCommand | null, b: VoiceCommand | null) => JSON.stringify(a) === JSON.stringify(b)
+const asList = (x: VoiceCommand | VoiceCommand[] | null): VoiceCommand[] => (x === null ? [] : Array.isArray(x) ? x : [x])
+const same = (a: VoiceCommand[], b: VoiceCommand[]) => JSON.stringify(a) === JSON.stringify(b)
 
-interface Row { voice: string; phrase: string; context: string; heard: string; got: VoiceCommand | null; ok: boolean; risky: boolean; ms: number }
+interface Row { voice: string; phrase: string; context: string; heard: string; got: VoiceCommand[]; ok: boolean; risky: boolean; ms: number }
 const jobs = VOICES.flatMap(v => CASES.map(c => ({ v, c })))
 const rows: Row[] = []
 let next = 0
@@ -82,11 +86,11 @@ await Promise.all(
         heard = `<error ${(e as Error).message}>`
       }
       const ms = Date.now() - t0
-      const it = interpret(heard, c.ctx)
-      const got = it.ok ? it.command : null
-      const ok = same(got, c.expected)
+      const got = interpretAll(heard, c.ctx).commands
+      const want = asList(c.expected)
+      const ok = same(got, want)
       // Risky misfire: a money-relevant command that wasn't asked for (or with the wrong value).
-      const risky = !ok && got !== null && RISKY.has(got.type)
+      const risky = got.some(g => RISKY.has(g.type) && !want.some(w => same([w], [g])))
       rows.push({ voice: v, phrase: c.phrase, context: c.ctx.state, heard, got, ok, risky, ms })
       process.stdout.write(ok ? '.' : risky ? '!' : 'x')
     }
@@ -129,7 +133,7 @@ const md = [
   '',
   ...rows
     .filter(r => !r.ok)
-    .map(r => `- ${r.risky ? '**RISKY** ' : ''}${r.voice} · [${r.context}] "${r.phrase}" → heard "${r.heard}" → ${r.got ? JSON.stringify(r.got) : 'no command'}`),
+    .map(r => `- ${r.risky ? '**RISKY** ' : ''}${r.voice} · [${r.context}] "${r.phrase}" → heard "${r.heard}" → ${r.got.length ? JSON.stringify(r.got) : 'no command'}`),
   '',
 ].join('\n')
 writeFileSync(path.join(here, 'VOICE_RESULTS.md'), md)

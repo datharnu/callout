@@ -1,4 +1,4 @@
-// Voice command interpreter. Pure code, no LLM: a transcript + the card's state → one command.
+// Voice command interpreter. Pure code, no LLM: a transcript + the card's state → the commands in it.
 //
 // Safety model (BRIEF: "voice only picks an action; a tap always confirms"):
 //   - Risky actions (place an order, close a position) are only SELECTED by voice; a tap confirms.
@@ -163,49 +163,152 @@ export function resolvePrice(spoken: number, entry: number | null): number | nul
   return best
 }
 
-function detect(t: string, ctx: VoiceContext): VoiceCommand | 'no_price' | 'proceed' | null {
+// ── Scanner: every command in an utterance, in the order spoken ─────────────────────────────────
+const B = '(?<![a-z0-9])'
+const E = '(?![a-z0-9.,%])'
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\%]/g, '\\$&')
+const phrases = (list: string[]) => new RegExp(`${B}(?:${[...list].sort((a, b) => b.length - a.length).map(escape).join('|')})${E}`, 'g')
+
+/** "set stop 59.2k", "move my stop to 59,200", "stop loss 59k", or just "set stop" (unfinished). */
+const STOP_RE = new RegExp(
+  `${B}(?:(?:set|move|put|change|update)\\s+)?(?:(?:my|the|a)\\s+)?(?:stop\\s+loss|stop|sl)${E}(?:\\s+(?:to|at|on|is))?(?:\\s+([0-9][0-9.,]*k?))?`,
+  'g',
+)
+
+type Simple = Exclude<VoiceCommand, { type: 'set_stop' } | { type: 'size' }>['type']
+const PHRASES: { cmd: VoiceCommand; re: RegExp }[] = [
+  { cmd: { type: 'size', factor: 0.5 }, re: phrases(['half size', 'half', 'half position', '50%', 'fifty percent']) },
+  { cmd: { type: 'size', factor: 1 }, re: phrases(['full size', 'full', 'normal size', '100%']) },
+  ...(
+    [
+      ['cancel', ['cancel', 'abort']],
+      ['close', ['close it', 'close', 'exit', 'take profit', 'get out', 'sell it']],
+      ['keep', ['keep it', 'keep', 'hold', 'stay in']],
+      ['skip', ['not this one', 'no thanks', 'skip', 'pass', 'ignore', 'no']],
+      ['prev', ['go back', 'previous', 'back', 'prev']],
+      ['next', ['next one', 'next']],
+      ['dismiss', ['got it', 'okay', 'ok', 'continue', 'done', 'thanks']],
+      ['place', ['place it', 'take it', 'take this', 'take that', 'place', 'buy', 'go', 'yes', 'confirm', 'enter', 'open']],
+    ] as [Simple, string[]][]
+  ).map(([type, list]) => ({ cmd: { type } as VoiceCommand, re: phrases(list) })),
+]
+
+/** Filler commands that only count in a very short utterance ("ok, half size" ≠ dismiss; "No, I don't…" in a conversation ≠ skip). */
+const WEAK = new Set(['no', 'ok', 'okay', 'yes', 'go', 'thanks', 'done', 'enter', 'open'])
+/** Words that don't make speech less command-like ("half size and then place it please"). */
+const FILLER = new Set(['and', 'then', 'please', 'actually', 'also', 'um', 'uh', 'er', 'the', 'a', 'to', 'at', 'it', 'my', 'now', 'just', 'so', 'hey', 'callout'])
+/** Longer speech must be mostly command words, or it is conversation (a TV, people nearby). */
+const MIN_COMMAND_DENSITY = 0.5
+const SHORT_UTTERANCE_WORDS = 6
+const WEAK_MAX_WORDS = 3
+const MODIFIERS = new Set<VoiceCommand['type']>(['size', 'set_stop'])
+const NAVIGATION = new Set<VoiceCommand['type']>(['next', 'prev'])
+
+export interface VoiceParse {
+  /** Commands to apply, in order: modifiers first (as spoken), then at most one final action. */
+  commands: VoiceCommand[]
+  /** Things said that couldn't be used (shown to the user, nothing applied for them). */
+  issues: { kind: 'no_price' | 'not_available'; text: string }[]
+  /** The utterance ended mid-command ("set stop" with no price yet): wait for the rest. */
+  partial?: 'stop'
+  /** Countdown only: a clear "go ahead" (the order simply continues). */
+  proceed?: boolean
+  /** Sounded like conversation, not a command: nothing applied. */
+  ignored?: boolean
+  hint: string
+}
+
+interface Hit { start: number; end: number; text: string; cmd?: VoiceCommand; issue?: 'no_price'; partial?: 'stop'; weak?: boolean }
+
+export function interpretAll(transcript: string, ctx: VoiceContext): VoiceParse {
+  const t = normalize(transcript)
+  const hint = hintFor(ctx)
+  const out: VoiceParse = { commands: [], issues: [], hint }
+  if (!t) return out
+
   // Countdown is fail-safe: anything that isn't a clear "go ahead" cancels. A wrong cancel costs
   // nothing; a missed cancel places an order. ("wait" was once heard as "way", "abort" as "I bought".)
   if (ctx.state === 'countdown') {
     // Negation wins: "no, don't go" / "don't do it" must cancel even though they contain "go" / "do it".
-    if (has(t, 'no', 'dont', 'do not', 'not', 'stop', 'cancel', 'wait', 'abort', 'hold', 'hang on')) return { type: 'cancel' }
-    if (has(t, 'yes', 'go', 'go ahead', 'confirm', 'do it', 'ok', 'okay', 'continue', 'fine', 'place it', 'send it')) return 'proceed'
-    return { type: 'cancel' }
+    if (has(t, 'no', 'dont', 'do not', 'not', 'stop', 'cancel', 'wait', 'abort', 'hold', 'hang on')) out.commands.push({ type: 'cancel' })
+    else if (has(t, 'yes', 'go', 'go ahead', 'confirm', 'do it', 'ok', 'okay', 'continue', 'fine', 'place it', 'send it')) out.proceed = true
+    else out.commands.push({ type: 'cancel' })
+    return out
   }
-  // Order matters: specific phrases before single words ("set stop 59k" before "stop" = cancel).
-  if (/\b(stop|stop loss|sl)\b/.test(t) && /\d/.test(t)) {
-    const nums = numbersInText(t)
-    const price = nums.length ? resolvePrice(nums[nums.length - 1]!, ctx.entry) : null
-    return price === null ? 'no_price' : { type: 'set_stop', price }
+
+  const hits: Hit[] = []
+  for (const m of t.matchAll(STOP_RE)) {
+    const start = m.index!
+    const end = start + m[0].length
+    const h: Hit = { start, end, text: m[0] }
+    if (m[1]) {
+      const n = numbersInText(m[1])[0]
+      const price = n !== undefined ? resolvePrice(n, ctx.entry) : null
+      if (price === null) h.issue = 'no_price'
+      else h.cmd = { type: 'set_stop', price }
+    } else if (end >= t.length) h.partial = 'stop' // "…set stop" at the very end: the price is coming
+    else h.issue = 'no_price'
+    hits.push(h)
   }
-  if (has(t, 'half', 'half size', '50%', 'fifty percent')) return { type: 'size', factor: 0.5 }
-  if (has(t, 'full size', 'full', 'normal size', '100%')) return { type: 'size', factor: 1 }
+  for (const { cmd, re } of PHRASES)
+    for (const m of t.matchAll(re)) hits.push({ start: m.index!, end: m.index! + m[0].length, text: m[0], cmd, weak: WEAK.has(m[0]) })
 
-  if (has(t, 'cancel', 'abort')) return { type: 'cancel' }
+  // Earliest first; at the same position the longer phrase wins; overlaps are dropped.
+  hits.sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start))
+  const kept: Hit[] = []
+  for (const h of hits) if (!kept.some(k => h.start < k.end && k.start < h.end)) kept.push(h)
 
-  if (has(t, 'close', 'close it', 'exit', 'take profit', 'get out', 'sell it')) return { type: 'close' }
-  if (has(t, 'keep', 'keep it', 'hold', 'stay in')) return { type: 'keep' }
-  if (has(t, 'skip', 'pass', 'ignore', 'not this one', 'no', 'no thanks')) return { type: 'skip' }
-  // Navigation before "place": "go back" must not match "go".
-  if (has(t, 'previous', 'back', 'prev', 'go back')) return { type: 'prev' }
-  if (has(t, 'next', 'next one')) return { type: 'next' }
-  if (has(t, 'ok', 'okay', 'continue', 'done', 'got it', 'thanks')) return { type: 'dismiss' }
-  if (has(t, 'place', 'place it', 'buy', 'take it', 'take this', 'take that', 'go', 'yes', 'confirm', 'enter', 'open')) return { type: 'place' }
-  return null
+  // Conversation filter: in speech longer than a few words, command phrases must cover at least half
+  // of the meaningful words. "Welcome back… I feel like…" (6 s of a TV) is not "back".
+  const words = t.split(' ').filter(w => !FILLER.has(w))
+  const covered = kept.reduce((n, h) => n + h.text.split(' ').filter(w => !FILLER.has(w)).length, 0)
+  if (words.length > SHORT_UTTERANCE_WORDS && covered / words.length < MIN_COMMAND_DENSITY) {
+    out.ignored = true
+    return out
+  }
+
+  // Negation drops the command it applies to: "don't place it", "not half size".
+  const negated = (h: Hit) => /(?:^| )(?:dont|do not|not|never)(?: \S+)?\s*$/.test(t.slice(0, h.start))
+  let used = kept.filter(h => !(h.cmd && h.cmd.type !== 'skip' && negated(h)))
+  if (used.some(h => !h.weak && (h.cmd || h.issue || h.partial)) || words.length > WEAK_MAX_WORDS) used = used.filter(h => !h.weak)
+
+  const cmds: VoiceCommand[] = []
+  for (const h of used) {
+    if (h.partial) out.partial = h.partial
+    if (h.issue) out.issues.push({ kind: h.issue, text: h.text })
+    if (!h.cmd) continue
+    let c = h.cmd
+    // "next"/"ok"/"place" on a result screen all mean "continue"; "skip" on a holding card means keep.
+    if ((c.type === 'next' || c.type === 'place') && ['filled', 'failed', 'cancelled'].includes(ctx.state)) c = { type: 'dismiss' }
+    if (c.type === 'skip' && ctx.state === 'holding') c = { type: 'keep' }
+    if (!availableCommands(ctx).includes(c.type)) out.issues.push({ kind: 'not_available', text: h.text })
+    else cmds.push(c)
+  }
+
+  // Combine: last value of each modifier wins (in spoken order); one final action (the last one);
+  // navigation only when it was the only thing said.
+  const modifiers: VoiceCommand[] = []
+  for (const c of cmds) {
+    if (!MODIFIERS.has(c.type)) continue
+    const i = modifiers.findIndex(m => m.type === c.type)
+    if (i >= 0) modifiers.splice(i, 1)
+    modifiers.push(c)
+  }
+  const finals = cmds.filter(c => !MODIFIERS.has(c.type) && !NAVIGATION.has(c.type))
+  const nav = cmds.filter(c => NAVIGATION.has(c.type))
+  out.commands = [...modifiers, ...finals.slice(-1)]
+  if (!out.commands.length && nav.length && !out.partial) out.commands = nav.slice(-1)
+  return out
 }
 
+/** Single-command view (kept for callers that expect exactly one command). */
 export function interpret(transcript: string, ctx: VoiceContext): Interpretation {
-  const t = normalize(transcript)
-  const hint = hintFor(ctx)
-  if (!t) return { ok: false, reason: 'empty', hint }
-  let cmd = detect(t, ctx)
-  if (cmd === 'no_price') return { ok: false, reason: 'no_price', hint }
-  if (cmd === 'proceed') return { ok: false, reason: 'not_available', hint: 'order continues · say cancel to stop' }
-  if (!cmd) return { ok: false, reason: 'not_understood', hint }
-  // "next"/"ok" on a result screen both mean "continue".
-  if ((cmd.type === 'next' || cmd.type === 'place') && ['filled', 'failed', 'cancelled'].includes(ctx.state)) cmd = { type: 'dismiss' }
-  // On a holding card, "skip" means keep the position.
-  if (cmd.type === 'skip' && ctx.state === 'holding') cmd = { type: 'keep' }
-  if (!availableCommands(ctx).includes(cmd.type)) return { ok: false, reason: 'not_available', hint }
-  return { ok: true, command: cmd }
+  const p = interpretAll(transcript, ctx)
+  const hint = p.hint
+  if (!normalize(transcript)) return { ok: false, reason: 'empty', hint }
+  if (p.proceed) return { ok: false, reason: 'not_available', hint: 'order continues · say cancel to stop' }
+  if (p.commands.length) return { ok: true, command: p.commands[0]! }
+  if (p.partial || p.issues.some(i => i.kind === 'no_price')) return { ok: false, reason: 'no_price', hint }
+  if (p.issues.length) return { ok: false, reason: 'not_available', hint }
+  return { ok: false, reason: 'not_understood', hint }
 }

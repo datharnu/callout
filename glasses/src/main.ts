@@ -66,23 +66,38 @@ async function setMic(on: boolean) {
   render()
 }
 
+// Utterances are processed strictly in order, each against the card it was spoken to.
+// ("set stop" + pause + "59K" arrive as two utterances; the second must not be dropped.)
+const voiceQueue: { id: string; pcm: Uint8Array }[] = []
+const MAX_QUEUE = 3
+
 async function onUtterance(pcm: Uint8Array) {
   const id = voiceCardId
   voiceCardId = null
-  console.log(`[callout] utterance ${Math.round(pcm.length / 32)} ms → ${id ?? 'no card'}${voiceSending ? ' (dropped: busy)' : ''}`)
-  if (!id || voiceSending) return // one at a time; never queue speech against a different card
+  console.log(`[callout] utterance ${Math.round(pcm.length / 32)} ms → ${id ?? 'no card'}${voiceSending ? ' (queued)' : ''}`)
+  if (!id) return
+  if (voiceQueue.length >= MAX_QUEUE) voiceQueue.shift()
+  voiceQueue.push({ id, pcm })
+  if (voiceSending) return
   voiceSending = true
   render()
   try {
-    const r = await sendVoice(id, pcm)
-    console.log(`[callout] voice "${r.heard}" → ${r.note.result}: ${r.note.message}`)
-    if (r.navigate) onSwipe(r.navigate === 'next' ? 1 : -1)
-  } catch (e) {
-    console.warn('[callout] voice failed', e)
+    while (voiceQueue.length) {
+      const next = voiceQueue.shift()!
+      if (next.id !== selected()?.id) continue // the card changed: never apply speech to a different card
+      try {
+        const r = await sendVoice(next.id, next.pcm)
+        console.log(`[callout] voice "${r.heard}" → ${r.note.result}: ${r.note.message}`)
+        if (r.navigate) onSwipe(r.navigate === 'next' ? 1 : -1)
+      } catch (e) {
+        console.warn('[callout] voice failed', e)
+      }
+      await poll()
+    }
   } finally {
     voiceSending = false
+    render()
   }
-  await poll()
 }
 
 function voiceUi(): VoiceUi {
@@ -126,7 +141,10 @@ function render() {
     key = `${c.id}:${c.state}`
   }
   if (key !== shownKey) {
-    if (key.split(':').slice(0, -1).join(':') !== shownKey.split(':').slice(0, -1).join(':')) vad.reset() // new card: drop half-heard speech
+    if (key.split(':').slice(0, -1).join(':') !== shownKey.split(':').slice(0, -1).join(':')) {
+      vad.reset() // new card: drop half-heard speech and anything queued for the old one
+      voiceQueue.length = 0
+    }
     shownKey = key
     shownAt = Date.now()
   }

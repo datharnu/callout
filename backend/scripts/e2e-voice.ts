@@ -71,6 +71,16 @@ try {
   r = await say(id, `move stop to ${k(tight)}`)
   expect('fixing the stop by voice → ready again', r.card.state === 'ready' && r.card.userStop === tight, show(r))
 
+  r = await say(id, `half size, set stop ${k(tight)}`)
+  expect('one sentence, two commands: half size AND set stop', r.card.sizeUsd === 100 && r.card.userStop === tight && r.card.state === 'ready', show(r))
+  await say(id, 'full size')
+
+  r = await say(id, 'set stop')
+  expect('"set stop" then a pause: asks for the price, changes nothing yet', r.note.result === 'partial' && r.card.userStop === tight, show(r))
+  const tighter = r100(px * 0.99)
+  r = await say(id, k(tighter))
+  expect('…then just the price completes it', r.card.userStop === tighter && r.card.state === 'ready', show(r))
+
   r = await say(id, 'place it')
   expect('"place it" only selects: no order, card still ready', r.note.result === 'selected' && r.card.state === 'ready' && !r.card.order, show(r))
 

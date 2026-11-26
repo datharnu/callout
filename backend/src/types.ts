@@ -79,7 +79,7 @@ export interface TrackRecord {
 export interface VoiceNote {
   heard: string // transcript
   command?: string // interpreted command type
-  result: 'done' | 'selected' | 'applied' | 'navigate' | 'refused' | 'not_understood' | 'not_available' | 'error'
+  result: 'done' | 'selected' | 'applied' | 'partial' | 'navigate' | 'refused' | 'not_understood' | 'not_available' | 'error'
   message: string // what the glasses show, neutral wording
   state: CardState // card state right after the command; the note is only shown while it still holds
   at: number
@@ -105,6 +105,7 @@ export interface Card {
   userStop?: number // stop the user set by voice (replaces the caller's; all checks re-run)
   sizeFactor?: 0.5 | 1 // voice "half size" / "full size"; size is always settings × factor, capped
   voice?: VoiceNote // last voice interaction on this card, shown on the glasses
+  voicePending?: { prefix: string; until: number } // unfinished command ("set stop…") waiting for its price
   edited?: boolean // created from an edited Telegram message
   dismissed?: boolean // result screen acknowledged on the glasses
 }

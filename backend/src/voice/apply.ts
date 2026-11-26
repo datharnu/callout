@@ -1,12 +1,15 @@
-// Apply one spoken utterance to one card.
+// Apply one spoken utterance (possibly several commands) to one card.
 // Voice never places or closes anything: Place/Close are only selected (a tap confirms).
 // Modifiers (half size, set stop) re-run every check. Safe actions (skip/keep/cancel/ok) run now.
 import { config } from '../config.js'
 import { ActionError, cancel, dismiss, reevaluate, sizeProblem, skip } from '../executor.js'
 import { audit, cards } from '../store.js'
 import type { Card, VoiceNote } from '../types.js'
-import { interpret, type VoiceCommand } from './commands.js'
+import { interpretAll, type VoiceCommand, type VoiceParse } from './commands.js'
 import { SttError, transcribe } from './stt.js'
+
+/** How long an unfinished command ("set stop…") waits for the rest ("…59K"). */
+const PENDING_MS = 6000
 
 const fmt = (v: number) =>
   v >= 10_000 ? `${(v / 1000).toFixed(2).replace(/\.?0+$/, '')}k` : String(Number(v.toPrecision(6)))
@@ -14,17 +17,36 @@ const coin = (c: Card) => (c.parsed?.symbol ?? '').replace(/USDT$/, '')
 
 export interface VoiceResult {
   heard: string
-  command?: VoiceCommand
+  commands: VoiceCommand[]
   note: VoiceNote
   /** Navigation is handled on the glasses. */
   navigate?: 'next' | 'prev'
 }
 
-function note(card: Card, heard: string, result: VoiceNote['result'], message: string, command?: VoiceCommand): VoiceResult {
-  const n: VoiceNote = { heard, result, message, state: card.state, at: Date.now(), ...(command ? { command: command.type } : {}) }
+function finish(card: Card, heard: string, result: VoiceNote['result'], message: string, commands: VoiceCommand[] = []): VoiceResult {
+  const n: VoiceNote = {
+    heard, result, message, state: card.state, at: Date.now(),
+    ...(commands.length ? { command: commands.map(c => c.type).join('+') } : {}),
+  }
   card.voice = n
-  audit('voice', { id: card.id, heard, command: command ?? null, result, message })
-  return { heard, note: n, ...(command ? { command } : {}) }
+  audit('voice', { id: card.id, heard, commands, result, message })
+  const nav = commands.find(c => c.type === 'next' || c.type === 'prev')
+  return { heard, commands, note: n, ...(nav ? { navigate: nav.type as 'next' | 'prev' } : {}) }
+}
+
+/**
+ * Parse with any pending fragment. "set stop" + (pause) + "59K" arrive as two utterances; the
+ * second is read as the continuation of the first, but only if that actually completes a stop.
+ */
+function parseWithPending(card: Card, heard: string): VoiceParse {
+  const ctx = { state: card.state, action: card.action, entry: card.parsed?.entry ?? null }
+  const pending = card.voicePending && Date.now() < card.voicePending.until ? card.voicePending : undefined
+  card.voicePending = undefined
+  if (pending) {
+    const joined = interpretAll(`${pending.prefix} ${heard}`, ctx)
+    if (joined.commands.some(c => c.type === 'set_stop')) return joined
+  }
+  return interpretAll(heard, ctx)
 }
 
 export async function handleVoice(cardId: string, pcm: Buffer): Promise<VoiceResult> {
@@ -36,64 +58,107 @@ export async function handleVoice(cardId: string, pcm: Buffer): Promise<VoiceRes
     heard = await transcribe(pcm)
   } catch (e) {
     const msg = e instanceof SttError && e.message === 'too short' ? "Didn't catch that" : "Couldn't hear that · try again"
-    return note(card, '', 'error', msg)
+    return finish(card, '', 'error', msg)
   }
 
-  const it = interpret(heard, { state: card.state, action: card.action, entry: card.parsed?.entry ?? null })
-  if (!it.ok) {
-    const quoted = heard ? `"${heard.slice(0, 40)}"` : 'nothing'
-    if (it.reason === 'no_price') return note(card, heard, 'not_understood', `Heard ${quoted} · no stop price · e.g. "set stop 59.2k"`)
-    if (it.reason === 'not_available') return note(card, heard, 'not_available', `Heard ${quoted} · not available here · ${it.hint}`)
-    return note(card, heard, 'not_understood', `Heard ${quoted} · ${it.hint}`)
-  }
+  const parse = parseWithPending(card, heard)
+  const quoted = heard ? `"${heard.slice(0, 40)}"` : 'nothing'
+  if (parse.proceed) return finish(card, heard, 'not_available', 'Order continues · say cancel to stop')
+  if (parse.ignored) return finish(card, heard, 'not_understood', 'Ignored: sounded like conversation')
 
-  const cmd = it.command
-  try {
-    switch (cmd.type) {
-      case 'place':
-        return note(card, heard, 'selected', `Place $${card.sizeUsd} demo · tap to confirm`, cmd)
-      case 'close':
-        return note(card, heard, 'selected', `Close ${coin(card)} (reduce-only) · tap to confirm`, cmd)
+  const parts: string[] = []
+  let anyDone = false
+  let anySelected = false
+  let anyApplied = false
+  let refused = false
 
-      case 'size': {
-        const prev = { factor: card.sizeFactor, usd: card.sizeUsd }
-        card.sizeFactor = cmd.factor
-        card.sizeUsd = Math.min(config.sizeUsd * cmd.factor, config.maxSizeUsd) // settings × factor, capped
-        const problem = await sizeProblem(card)
-        if (problem) {
-          card.sizeFactor = prev.factor
-          card.sizeUsd = prev.usd
-          return note(card, heard, 'refused', `${cmd.factor === 0.5 ? 'Half' : 'Full'} size refused · ${problem}`, cmd)
+  for (const cmd of parse.commands) {
+    try {
+      switch (cmd.type) {
+        case 'size': {
+          const prev = { factor: card.sizeFactor, usd: card.sizeUsd }
+          card.sizeFactor = cmd.factor
+          card.sizeUsd = Math.min(config.sizeUsd * cmd.factor, config.maxSizeUsd) // settings × factor, capped
+          const problem = await sizeProblem(card)
+          if (problem) {
+            card.sizeFactor = prev.factor
+            card.sizeUsd = prev.usd
+            parts.push(`${cmd.factor === 0.5 ? 'Half' : 'Full'} size refused: ${problem}`)
+            refused = true
+          } else {
+            parts.push(`${cmd.factor === 0.5 ? 'Half' : 'Full'} size $${card.sizeUsd}`)
+            anyApplied = true
+          }
+          break
         }
-        return note(card, heard, 'applied', `${cmd.factor === 0.5 ? 'Half' : 'Full'} size: $${card.sizeUsd} · tap to place`, cmd)
+        case 'set_stop': {
+          card.userStop = cmd.price
+          await reevaluate(card)
+          const s = card.state as Card['state']
+          parts.push(s === 'ready' ? `Stop ${fmt(cmd.price)} (yours)` : `Stop ${fmt(cmd.price)}: ${card.flags.join(' · ') || s}`)
+          anyApplied = true
+          break
+        }
+        case 'place':
+          anySelected = true
+          break
+        case 'close':
+          parts.push(`Close ${coin(card)} (reduce-only)`)
+          anySelected = true
+          break
+        case 'skip':
+          skip(card.id)
+          parts.push('Skipped')
+          anyDone = true
+          break
+        case 'keep':
+          skip(card.id)
+          parts.push(`Keeping ${coin(card)}`)
+          anyDone = true
+          break
+        case 'cancel':
+          cancel(card.id)
+          parts.push('Cancelled · no order sent')
+          anyDone = true
+          break
+        case 'dismiss':
+          dismiss(card.id)
+          parts.push('OK')
+          anyDone = true
+          break
+        case 'next':
+        case 'prev':
+          return finish(card, heard, 'navigate', cmd.type === 'next' ? 'Next card' : 'Previous card', [cmd])
       }
-
-      case 'set_stop': {
-        card.userStop = cmd.price
-        await reevaluate(card)
-        const s = card.state as Card['state']
-        if (s === 'ready') return note(card, heard, 'applied', `Stop set to ${fmt(cmd.price)} (yours) · tap to place`, cmd)
-        return note(card, heard, 'applied', `Stop set to ${fmt(cmd.price)} · ${card.flags.join(' · ') || s}`, cmd)
-      }
-
-      case 'skip':
-        skip(card.id)
-        return note(card, heard, 'done', 'Skipped', cmd)
-      case 'keep':
-        skip(card.id)
-        return note(card, heard, 'done', `Keeping ${coin(card)}`, cmd)
-      case 'cancel':
-        cancel(card.id)
-        return note(card, heard, 'done', 'Cancelled · no order sent', cmd)
-      case 'dismiss':
-        dismiss(card.id)
-        return note(card, heard, 'done', 'OK', cmd)
-      case 'next':
-      case 'prev':
-        return { ...note(card, heard, 'navigate', cmd.type === 'next' ? 'Next card' : 'Previous card', cmd), navigate: cmd.type }
+    } catch {
+      // e.g. the countdown ended (order already sent) a moment before "cancel" arrived.
+      parts.push(`too late: card is ${card.state}`)
+      refused = true
     }
-  } catch (e) {
-    // e.g. the countdown ended (order already sent) a moment before "cancel" arrived.
-    return note(card, heard, 'refused', `Too late · card is ${card.state}`, cmd)
   }
+
+  for (const i of parse.issues) parts.push(i.kind === 'no_price' ? 'no stop price (e.g. "set stop 59.2k")' : `"${i.text}" not available here`)
+
+  if (parse.partial === 'stop') {
+    card.voicePending = { prefix: 'set stop', until: Date.now() + PENDING_MS }
+    parts.push('Stop at what price?')
+  }
+
+  if (!parse.commands.length && !parse.partial) {
+    const why = parse.issues.length ? parts.join(' · ') : parse.hint
+    return finish(card, heard, parse.issues.length ? 'not_available' : 'not_understood', `Heard ${quoted} · ${why}`)
+  }
+
+  // One confirmation hint at the end, for whatever the tap will now do.
+  const s = card.state as Card['state']
+  if (!anyDone && !parse.partial && (anyApplied || anySelected)) {
+    if (s === 'ready') parts.push(`tap to place $${card.sizeUsd}`)
+    else if (s === 'holding') parts.push('tap to confirm')
+  }
+  const result: VoiceNote['result'] = anyDone ? 'done'
+    : parse.partial && !anyApplied ? 'partial'
+    : anyApplied ? 'applied'
+    : anySelected ? 'selected'
+    : refused ? 'refused' : 'not_understood'
+  return finish(card, heard, result, parts.join(' · '), parse.commands)
 }

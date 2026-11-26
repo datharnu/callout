@@ -19,9 +19,9 @@ export interface VadOptions {
 }
 
 export const DEFAULT_VAD: VadOptions = {
-  preRollMs: 300,
+  preRollMs: 500, // live test: soft starts ("h" in "half") were clipped at 300 ms
   startMs: 60,
-  endSilenceMs: 600,
+  endSilenceMs: 800, // live test: people pause before numbers; 600 ms split "set stop | 59K"
   minSpeechMs: 250,
   maxUtteranceMs: 6000,
   startFactor: 3,

@@ -68,25 +68,31 @@ Voice is built for the moment you have a call card in front of you and your hand
 | "set stop 59.2k" / "move stop to 59,200" / "stop loss fifty-nine thousand" | Your stop replaces the caller's and **every check re-runs**: a stop on the wrong side or already behind the price blocks the card; a valid stop can unblock a call that had none. The card shows `SL 59.2k (you)` and the new R:R. Spoken shorthand follows the entry's scale ("59.2" on a 60k entry → 59,200). |
 | "place it" / "close it" | Selects the action and shows `tap to confirm`. **Voice never places or closes anything.** |
 | "skip" / "keep it" / "okay" / "next" / "back" | Safe actions run immediately. |
+| "half size, set stop 59.5k and place it" | **Several commands in one breath** are applied in order: the size and stop changes first, then one final action. The card shows `Half size $100 · Stop 59.5k (yours) · tap to place $100`. |
+| "set stop" … (pause) … "59.5k" | People pause before numbers. An unfinished "set stop" shows `Stop at what price?` and the next 6 seconds of speech complete it. |
 | "cancel" / "stop" / "wait" during the countdown | Cancels immediately. During the countdown **anything that isn't a clear "go ahead" cancels**, and negation always wins ("no, don't go" cancels). A wrong cancel costs nothing; a missed cancel places an order. |
 
 **How it works**
 
 - **Mic only while a card is on screen.** It's off on the home screen and while an order is being sent. It's opened with `audioControl` after the page is created, as the SDK requires.
-- **On-device speech detection** (`glasses/src/vad.ts`) adapts to room noise and cuts single utterances (300 ms pre-roll, ends after 600 ms of silence, 6 s cap). Only finished utterances leave the glasses: nothing streams continuously. Frames the G2 marks as another speaker (`speakerRole: other`) are ignored.
-- Each utterance goes to the card that was on screen when you started speaking. A card change discards half-heard speech.
+- **On-device speech detection** (`glasses/src/vad.ts`) adapts to room noise and cuts single utterances (500 ms pre-roll, ends after 800 ms of silence, 6 s cap). Only finished utterances leave the glasses: nothing streams continuously. Frames the G2 marks as another speaker (`speakerRole: other`) are ignored.
+- Each utterance goes to the card that was on screen when you started speaking. Utterances are processed in order, never dropped, and a card change discards anything half-heard or queued for the old card.
+- If the mic delivers digital silence (for example, the OS blocked microphone permission), the card says `mic · no audio (check mic permission) · tap works` instead of pretending to listen.
 - **Speech-to-text:** the backend sends the raw 16 kHz PCM to ElevenLabs Scribe (`scribe_v2`, its native `pcm_s16le_16` format, so nothing is re-encoded). The key stays on the backend. A warm, kept-alive connection gives **~0.5 s** transcription.
 - **Recognition is biased toward safe words only** (skip, cancel, keep, okay…). An early version also biased toward "half size", and the eval caught a mumbled "pass" being heard as "half size". Now an unclear word can only drift toward something harmless.
-- **Commands are matched in code** (`backend/src/voice/commands.ts`), not by an LLM, and depend on the card: "stop" means *cancel* during the countdown and *set my stop* on a call card. Spelled-out numbers are converted ("fifty-nine thousand two hundred" → 59,200).
+- **Commands are matched in code** (`backend/src/voice/commands.ts`), not by an LLM, and depend on the card: "stop" means *cancel* during the countdown and *set my stop* on a call card. Spelled-out numbers are converted ("fifty-nine thousand two hundred" → 59,200). Negation drops a command ("don't place it").
+- **Conversation is ignored.** In speech longer than a few words, command phrases must cover at least half of the meaningful words. Filler commands ("no", "ok", "yes") only count in a 1–3 word utterance. A live test caught a TV in the background: "…No, I don't. Me, we are fine…" had skipped a card. That speech is now ignored. (On G2 hardware, frames the glasses mark as another speaker are dropped before this.)
 - **Privacy:** audio is never stored. The audit log keeps the transcript and what it did.
 
-**Voice accuracy** (`npm run eval:voice`): 28 phrases (commands plus things that must *not* trigger anything) × 6 synthetic voices with US, UK, Australian, Irish, Indian and South African accents = 168 utterances through the real speech-to-text and interpreter.
+**Voice accuracy** (`npm run eval:voice`): 30 phrases (single commands, two-command sentences, and things that must *not* trigger anything) × 6 synthetic voices with US, UK, Australian, Irish, Indian and South African accents = 180 utterances through the real speech-to-text and interpreter.
 
 **Risky misfires: 0** (a Place, Close, size or stop command that wasn't asked for, or a wrong stop price).
 
-- Correct command: 159/168 (94.6%). Every miss produced *no* command, and the card shows what to say.
+- Correct command(s): 171/180 (95.0%), including 12/12 two-command sentences. Every miss produced *no* command, and the card shows what to say.
 - Non-commands correctly ignored: 24/24.
-- Speech-to-text latency: median 472 ms, p90 658 ms.
+- Speech-to-text latency: median 468 ms, p90 643 ms.
+
+We also tested by speaking into the simulator through a laptop microphone. That live test is what led to multi-command sentences, the "wait for the price" behavior, the longer pre-roll and pause, and the conversation filter.
 
 Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). **Caveat:** synthetic speech (macOS voices), not a real G2 mic on a noisy street.
 
@@ -165,13 +171,13 @@ For each call Callout sees, it walks **Bybit mainnet 1-minute candles** from the
 
 ```bash
 cd backend
-npm test             # 42 unit tests (checks, track record, rules, voice commands)
+npm test             # 53 unit tests (checks, track record, rules, voice commands)
 npm run e2e:safety   # 12 live safety scenarios against the running backend (places no orders)
-npm run e2e:voice    # 14 spoken-command scenarios, real speech-to-text (macOS; places no orders)
+npm run e2e:voice    # 17 spoken-command scenarios, real speech-to-text (macOS; places no orders)
 npm run eval         # labeled-set accuracy (about 260 Haiku calls, a few cents)
-npm run eval:voice   # voice accuracy, 168 utterances in 6 accents (macOS)
+npm run eval:voice   # voice accuracy, 180 utterances in 6 accents (macOS)
 npm run positions    # list demo positions;  -- --close  closes them reduce-only
-cd ../glasses && npm test   # 7 speech-detection (VAD) tests
+cd ../glasses && npm test   # 8 speech-detection (VAD) tests
 ```
 
 ### Settings
@@ -222,7 +228,7 @@ Nothing in this repository was written before the build week. The git history st
 - **One target attached.** Only the first TP is attached to the order and used for the track record. Holding cards close the whole position (no partial "secure 50%").
 - **Rules use the UTC day.** Daily loss comes from Bybit Demo closed P&L.
 - **Small, self-authored eval set** (see the accuracy caveat above).
-- **Voice tested with synthetic speech.** The command pipeline was tested with 6 synthetic voices through real speech-to-text, and the mic path in the simulator, but not with the physical G2 microphone. English only. Needs a network connection.
+- **Voice not yet tested on the G2 microphone.** Tested with 6 synthetic voices through real speech-to-text, and live by a person speaking into the simulator through a laptop mic. English only. Needs a network connection.
 - **Speech goes to a third party.** Short utterances (only while a card is shown) are sent to ElevenLabs for transcription. Callout itself stores no audio.
 
 ## Feature requests
