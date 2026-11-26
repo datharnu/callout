@@ -171,7 +171,7 @@ const phrases = (list: string[]) => new RegExp(`${B}(?:${[...list].sort((a, b) =
 
 /** "set stop 59.2k", "move my stop to 59,200", "stop loss 59k", or just "set stop" (unfinished). */
 const STOP_RE = new RegExp(
-  `${B}(?:(?:set|move|put|change|update)\\s+)?(?:(?:my|the|a)\\s+)?(?:stop\\s+loss|stop|sl)${E}(?:\\s+(?:to|at|on|is))?(?:\\s+([0-9][0-9.,]*k?))?`,
+  `${B}(?:(?:set|move|put|change|update)\\s+)?(?:(?:my|the|a)\\s+)?(?:stop\\s+loss|stops?|sl)${E}(?:\\s+(?:to|at|on|is))?(?:\\s+([0-9][0-9.,]*k?))?`,
   'g',
 )
 

@@ -187,3 +187,8 @@ test('filler commands need a very short utterance', () => {
   assert.deepEqual(all('no thanks', ready).commands, [{ type: 'skip' }])
   assert.deepEqual(all('no I really do not know', ready).commands, []) // 6 words: "no" alone doesn't count
 })
+
+test('live transcript: "set stops …" (plural) still sets the stop', () => {
+  // Heard in a live test: "half" misheard as "Outsize" (correctly ignored), "stop" as "stops".
+  assert.deepEqual(all('Outsize set stops fifty-nine point five K', ready).commands, [{ type: 'set_stop', price: 59500 }])
+})
