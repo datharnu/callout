@@ -249,6 +249,14 @@ npm run positions    # list demo positions;  -- --close  closes them reduce-only
 cd ../glasses && npm test   # 8 speech-detection (VAD) tests
 ```
 
+### Package for Even Hub (`.ehpk`)
+
+```bash
+cd glasses && npm run pack   # typecheck + build + evenhub pack → glasses/callout.ehpk
+```
+
+The package (about 40 KB, SDK 0.0.16, Even app 2.2.10+) contains only the glasses app: no keys, no backend. It talks to the Callout backend at `http://127.0.0.1:8787` (whitelisted in `app.json`), so today it works where the backend runs on the same machine, as in the simulator. Running it from a phone needs the hosted backend and pairing code on the [roadmap](#roadmap).
+
 ### Settings
 
 All optional, set in `.env`: `CALLOUT_SIZE_USD` (200), `CALLOUT_MAX_SIZE_USD` (500), `CALLOUT_MAX_TRADES_PER_DAY` (5), `CALLOUT_MAX_DAILY_LOSS_USD` (50), `CALLOUT_PAUSE_AFTER_LOSSES` (2), `CALLOUT_SYMBOLS`, `CALLOUT_MAX_ENTRY_DISTANCE_PCT` (3), `CALLOUT_CALL_EXPIRY_MIN` (15), `CALLOUT_CANCEL_WINDOW_SEC` (5). Set a rule to `0` to disable it. See [`.env.example`](.env.example).
