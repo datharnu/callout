@@ -14,18 +14,27 @@ export type IngestResult =
   | { outcome: 'muted'; reason: string }
   | { outcome: 'card'; card: Card }
 
+/** Allowlist + trivial filters. Pure, so the accuracy eval uses the exact production gate. */
+export function gate(
+  msg: Pick<IncomingMessage, 'chatId' | 'senderId' | 'text'>,
+  allow: { chats: ReadonlySet<string>; senders: ReadonlySet<string> },
+): { pass: true } | { pass: false; outcome: 'ignored' | 'muted'; reason: string } {
+  // Unknown chats are ignored entirely; unknown senders are noise, always.
+  if (!allow.chats.has(msg.chatId)) return { pass: false, outcome: 'ignored', reason: 'chat not allowlisted' }
+  if (!allow.senders.has(msg.senderId)) return { pass: false, outcome: 'muted', reason: 'sender not allowlisted' }
+  const text = msg.text.trim()
+  if (!text || text.startsWith('/')) return { pass: false, outcome: 'muted', reason: 'empty or command' }
+  return { pass: true }
+}
+
 export async function ingest(msg: IncomingMessage): Promise<IngestResult> {
-  // 1. Allowlist. Unknown chats are ignored entirely; unknown senders are noise, always.
-  if (!config.allowedChatIds.has(msg.chatId)) return { outcome: 'ignored', reason: 'chat not allowlisted' }
-  if (!config.allowedSenderIds.has(msg.senderId)) {
-    session.muted++
-    return { outcome: 'muted', reason: 'sender not allowlisted' }
+  // 1. Allowlist.
+  const g = gate(msg, { chats: config.allowedChatIds, senders: config.allowedSenderIds })
+  if (!g.pass) {
+    if (g.outcome === 'muted') session.muted++
+    return { outcome: g.outcome, reason: g.reason }
   }
   const text = msg.text.trim()
-  if (!text || text.startsWith('/')) {
-    session.muted++
-    return { outcome: 'muted', reason: 'empty or command' }
-  }
 
   // 2. Versioning (sync, before any await) so a slow parse of v0 can't overwrite a newer edit.
   const key = messageKey(msg.chatId, msg.messageId)

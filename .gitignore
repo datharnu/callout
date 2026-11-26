@@ -12,3 +12,4 @@ dist/
 logs/
 screenshots/tmp/
 .DS_Store
+eval/results.json

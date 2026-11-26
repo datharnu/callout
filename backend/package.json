@@ -10,7 +10,9 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "test": "tsx --test test/*.test.ts",
-    "e2e:safety": "tsx scripts/e2e-safety.ts"
+    "e2e:safety": "tsx scripts/e2e-safety.ts",
+    "positions": "tsx scripts/demo-positions.ts",
+    "eval": "tsx eval/run.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.14.0",
