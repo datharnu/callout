@@ -1,0 +1,14 @@
+# secrets
+.env
+.env.*
+!.env.example
+# deps / build
+node_modules/
+dist/
+*.ehpk
+# runtime data
+*.sqlite
+*.db
+logs/
+screenshots/tmp/
+.DS_Store
