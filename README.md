@@ -19,6 +19,15 @@ Callout reads the Telegram trade-call groups you choose. It checks each call aga
 | **Voice: "set stop 59.7k"** | **Voice: "close it" (tap confirms)** | **Countdown: say "cancel"** |
 | ![voice stop](screenshots/42-voice-set-stop.png) | ![voice close](screenshots/45-voice-holding-close.png) | ![voice countdown](screenshots/43-voice-countdown.png) |
 
+### Proof: one real order, three places
+
+A live call posted in Telegram, confirmed on the glasses, filled on Bybit Demo, receipt back in the group. Order ID `61bc839c-d5a6-4b7f-87cd-b0e372330dae`: the receipt shows its start, and Bybit's Order ID column shows its last 8 characters (`72330dae`). The glasses and receipt now use Bybit's last-8 form, so all three match character for character.
+
+| Glasses: filled | Bybit Demo: Order History | Telegram: receipt |
+|---|---|---|
+| ![glasses fill](screenshots/22-telegram-result.png) | ![bybit order](screenshots/proof-bybit-order.png) | ![telegram receipt](screenshots/proof-telegram-receipt.png) |
+| `FILLED 0.003 BTC @ 60,740.8` | `Open Long · 60,740.80 · 0.003 BTC · 17:03:55 · 72330dae` | `Buy 0.003 @ 60,740.8 · Order 61bc839c...0dae` |
+
 ## The problem
 
 Call groups post hundreds of messages a day. A few matter, and many calls are bad or outright scams. Traders decide in seconds without knowing whether the price has already moved, whether the caller is any good, or whether the trade breaks their own rules.
