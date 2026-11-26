@@ -1,0 +1,11 @@
+Copyright (c) 2026 datharnu. All rights reserved.
+
+This repository is made publicly visible for evaluation in the Heads Up hackathon
+(Even Realities x TVM Ventures x Daos Hub). No license is granted to copy, modify,
+distribute, or use this code, in whole or in part, without prior written permission
+from the copyright holder. Viewing the code, and running it to evaluate the hackathon
+submission, is permitted.
+
+Third-party code keeps its own license: files under glasses/ derived from the
+Even Hub minimal template are MIT-licensed, see glasses/THIRD_PARTY_NOTICES.md.
+Dependencies are covered by their respective licenses.

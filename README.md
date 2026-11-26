@@ -190,3 +190,7 @@ Nothing in this repository was written before the build week. The git history st
 4. **Bybit:** order-fill webhooks on Demo and testnet.
 5. **Bybit:** document that Demo Trading supports `orderLinkId` deduplication (`110072`) and `reduceOnly` (`110017` when flat). We verified both by hand, but the Demo docs don't mention them.
 
+
+## License
+
+Copyright (c) 2026 datharnu. **All rights reserved.** The code is public so it can be evaluated for the Heads Up hackathon: you may view it and run it to evaluate the submission, but not copy, modify or redistribute it without written permission. Template-derived files in `glasses/` keep their MIT license ([notice](glasses/THIRD_PARTY_NOTICES.md)). See [LICENSE](LICENSE).
