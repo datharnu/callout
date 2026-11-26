@@ -50,7 +50,7 @@ export async function sendReceipt(card: Card): Promise<boolean> {
   const short = o.orderId.length > 12 ? `${o.orderId.slice(0, 8)}…${o.orderId.slice(-4)}` : o.orderId
   const text = [
     'Callout receipt · Bybit Demo (not real money)',
-    `${card.parsed!.symbol} ${o.side} ${o.qty} @ ${Number(o.avgPrice).toLocaleString('en-US')}`,
+    `${o.kind === 'close' ? 'Closed (reduce-only) ' : ''}${card.parsed!.symbol} ${o.side} ${o.qty} @ ${Number(o.avgPrice).toLocaleString('en-US')}`,
     `Order ${short}`,
     'Placed after the user confirmed on their glasses. Not financial advice.',
   ].join('\n')

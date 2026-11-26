@@ -42,6 +42,18 @@ function header(c: CardView, pos: string): string {
   return `● ${clip(safe(c.sender), 22)} · allowlisted${c.edited ? ' · edited' : ''}${pos ? `   ${pos}` : ''}`
 }
 
+/** Track record: counts and sample size, never a score. */
+export function recordLine(c: CardView): string {
+  const r = c.record
+  if (!r) return ''
+  if (!r.seen) return 'No earlier calls seen from this sender'
+  const other = r.noEntry + r.ambiguous
+  return `Seen ${r.seen} · ${r.tp} TP · ${r.sl} SL · ${r.open} open${other ? ` · ${other} other` : ''}${r.synthetic ? ' (synthetic)' : ''}`
+}
+
+const posSide = (s: 'Buy' | 'Sell') => (s === 'Buy' ? 'long' : 'short')
+const signedPct = (p: number) => `${p >= 0 ? '+' : '-'}${Math.abs(p).toFixed(1)}%`
+
 function levels(c: CardView): string[] {
   const tps = c.targets.map(fmtPrice).join('/')
   return [
@@ -52,8 +64,20 @@ function levels(c: CardView): string[] {
 
 export function cardScreen(c: CardView, now: number, pos: string): string {
   if (c.state === 'countdown') return countdownScreen(c, now)
-  if (c.state === 'placing') return [`Placing ${coin(c.symbol)} ${c.side} $${c.sizeUsd} (demo)...`, '', 'Sent to Bybit Demo · waiting for fill'].join('\n')
+  if (c.state === 'placing') return [`${actionLabel(c)}...`, '', 'Sent to Bybit Demo · waiting for fill'].join('\n')
   if (c.state === 'filled' || c.state === 'failed' || c.state === 'cancelled') return resultScreen(c)
+
+  if (c.state === 'holding' && c.position) {
+    const p = c.position
+    return [
+      header(c, pos),
+      `"${clip(safe(c.raw), 90)}"`,
+      `Your ${coin(c.symbol)} ${posSide(p.side)} ${p.size} · ${signedPct(p.pnlPct)}`,
+      `Entry ${fmtPrice(p.avgPrice)} · now ${fmtPrice(p.markPrice)}`,
+      '',
+      '> Close (reduce-only)   ○ Keep',
+    ].join('\n')
+  }
 
   if (c.state === 'unsure') {
     const holding = c.flags.includes('holding update')
@@ -84,10 +108,16 @@ export function cardScreen(c: CardView, now: number, pos: string): string {
     header(c, pos),
     ...levels(c),
     `Price ${fmtPrice(c.livePrice)} · ${dist}`,
+    recordLine(c),
     minsLeft(c.expiresAt, now),
     '',
     `> Place $${c.sizeUsd} demo   ○ Skip`,
   ].join('\n')
+}
+
+function actionLabel(c: CardView): string {
+  if (c.action === 'close' && c.position) return `Closing ${coin(c.symbol)} ${posSide(c.position.side)} ${c.position.size} (reduce-only, demo)`
+  return `Placing ${coin(c.symbol)} ${c.side} $${c.sizeUsd} (demo)`
 }
 
 export function countdownScreen(c: CardView, now: number): string {
@@ -95,7 +125,7 @@ export function countdownScreen(c: CardView, now: number): string {
   const left = Math.max(0, (c.countdownEndsAt ?? now) - now)
   const n = Math.round((left / total) * BAR_WIDTH)
   return [
-    `Placing ${coin(c.symbol)} ${c.side} $${c.sizeUsd} (demo)...`,
+    `${actionLabel(c)}...`,
     '',
     `${'━'.repeat(n)}${'─'.repeat(BAR_WIDTH - n)}  ${Math.ceil(left / 1000)}s`,
     '',
@@ -108,7 +138,7 @@ export function resultScreen(c: CardView): string {
     const o = c.order
     const id = o.orderId.length > 12 ? `${o.orderId.slice(0, 4)}...${o.orderId.slice(-2)}` : o.orderId
     return [
-      `FILLED ${o.qty} ${coin(c.symbol)} @ ${Number(o.avgPrice).toLocaleString('en-US')}`,
+      `${o.kind === 'close' ? 'CLOSED' : 'FILLED'} ${o.qty} ${coin(c.symbol)} @ ${Number(o.avgPrice).toLocaleString('en-US')}${o.kind === 'close' ? ' (reduce-only)' : ''}`,
       `Order ${id} · Bybit Demo`,
       o.receiptSent ? 'Receipt sent to Telegram' : 'No receipt (replayed message)',
       '',

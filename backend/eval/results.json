@@ -647,7 +647,7 @@
         62500
       ],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.85,
       "quote": "Opening a BTC long at 60.5k. Stop under 59.4k. Taking profit at 62.5k."
     },
     "fields": {
@@ -844,14 +844,14 @@
         63000
       ],
       "leverage": null,
-      "confidence": 0.85,
+      "confidence": 0.9,
       "quote": "BTC long 60.5k, no stop, tp 63k"
     },
     "fields": {
       "symbol": true,
       "side": true,
       "entry": true,
-      "stop": false,
+      "stop": true,
       "targets": true
     }
   },
@@ -976,7 +976,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.7,
+      "confidence": 0.8,
       "quote": "Cut the DOGE long, setup invalidated"
     }
   },
@@ -1051,7 +1051,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.6,
+      "confidence": 0.5,
       "quote": "Exit XRP now"
     }
   },
@@ -1190,7 +1190,7 @@
         2600
       ],
       "leverage": null,
-      "confidence": 0.4,
+      "confidence": 0.3,
       "quote": "ETH long 2400 sl 2350 tp 2600"
     }
   },
@@ -1276,7 +1276,7 @@
         1000000
       ],
       "leverage": null,
-      "confidence": 0.2,
+      "confidence": 0.1,
       "quote": "LONG BTC entry 60.5k, stop 0, target 1000k"
     }
   },
@@ -1351,7 +1351,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.1,
+      "confidence": 0.2,
       "quote": "SOL long"
     }
   },
@@ -1487,7 +1487,7 @@
         63000
       ],
       "leverage": null,
-      "confidence": 0.85,
+      "confidence": 0.8,
       "quote": "LONG BTC entry 60.4k SL 59.2k TP 63k"
     },
     "fields": {
@@ -1615,7 +1615,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.15,
+      "confidence": 0.2,
       "quote": ""
     }
   },
@@ -1640,7 +1640,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.25,
+      "confidence": 0.2,
       "quote": "ETH: entry 2400ish maybe lower, stop wherever you feel"
     }
   },
@@ -1661,13 +1661,11 @@
       "kind": "unsure",
       "symbol": "SOLUSDT",
       "side": null,
-      "entry": 140,
-      "stop": 134,
-      "targets": [
-        148
-      ],
+      "entry": null,
+      "stop": null,
+      "targets": [],
       "leverage": null,
-      "confidence": 0.3,
+      "confidence": 0.2,
       "quote": "SOL 140 134 148"
     }
   },
@@ -1769,7 +1767,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -2044,7 +2042,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -2469,7 +2467,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.98,
+      "confidence": 0,
       "quote": ""
     }
   },
@@ -2494,7 +2492,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -2644,7 +2642,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0,
       "quote": ""
     }
   },
@@ -2719,7 +2717,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 1,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -2819,7 +2817,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0,
       "quote": ""
     }
   },
@@ -3094,7 +3092,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -3169,7 +3167,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -3194,7 +3192,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -3244,7 +3242,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -3319,7 +3317,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -3369,7 +3367,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -3594,7 +3592,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.3,
+      "confidence": 0.2,
       "quote": ""
     }
   },
@@ -3619,7 +3617,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -3694,7 +3692,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.3,
+      "confidence": 0.8,
       "quote": ""
     }
   },
@@ -3869,7 +3867,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -4069,7 +4067,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -4194,7 +4192,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -4669,7 +4667,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -5094,7 +5092,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.2,
+      "confidence": 0.3,
       "quote": ""
     }
   },
@@ -5344,7 +5342,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.8,
+      "confidence": 0.2,
       "quote": ""
     }
   },
@@ -5819,7 +5817,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.8,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -5944,7 +5942,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -6019,7 +6017,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -6044,7 +6042,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -6219,7 +6217,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.3,
+      "confidence": 0.2,
       "quote": ""
     }
   },
@@ -6701,6 +6699,231 @@
   {
     "id": "m260",
     "text": "ADA up 5% today",
+    "tags": [
+      "template-noise"
+    ],
+    "sender": "admin",
+    "truthKind": "noise",
+    "expected": "muted",
+    "predKind": "noise",
+    "kindOk": true,
+    "predicted": "muted",
+    "unsafe": false,
+    "parsed": {
+      "kind": "noise",
+      "symbol": null,
+      "side": null,
+      "entry": null,
+      "stop": null,
+      "targets": [],
+      "leverage": null,
+      "confidence": 0.9,
+      "quote": ""
+    }
+  },
+  {
+    "id": "m261",
+    "text": "I bought some TON spot for the long run",
+    "tags": [
+      "template-noise"
+    ],
+    "sender": "admin",
+    "truthKind": "noise",
+    "expected": "muted",
+    "predKind": "noise",
+    "kindOk": true,
+    "predicted": "muted",
+    "unsafe": false,
+    "parsed": {
+      "kind": "noise",
+      "symbol": null,
+      "side": null,
+      "entry": null,
+      "stop": null,
+      "targets": [],
+      "leverage": null,
+      "confidence": 0.8,
+      "quote": ""
+    }
+  },
+  {
+    "id": "m262",
+    "text": "ADA up 9% today",
+    "tags": [
+      "template-noise"
+    ],
+    "sender": "admin",
+    "truthKind": "noise",
+    "expected": "muted",
+    "predKind": "noise",
+    "kindOk": true,
+    "predicted": "muted",
+    "unsafe": false,
+    "parsed": {
+      "kind": "noise",
+      "symbol": null,
+      "side": null,
+      "entry": null,
+      "stop": null,
+      "targets": [],
+      "leverage": null,
+      "confidence": 0.9,
+      "quote": ""
+    }
+  },
+  {
+    "id": "m263",
+    "text": "I bought some SOL spot for the long run",
+    "tags": [
+      "template-noise"
+    ],
+    "sender": "admin",
+    "truthKind": "noise",
+    "expected": "muted",
+    "predKind": "noise",
+    "kindOk": true,
+    "predicted": "muted",
+    "unsafe": false,
+    "parsed": {
+      "kind": "noise",
+      "symbol": null,
+      "side": null,
+      "entry": null,
+      "stop": null,
+      "targets": [],
+      "leverage": null,
+      "confidence": 0.2,
+      "quote": ""
+    }
+  },
+  {
+    "id": "m264",
+    "text": "AVAX weekly close in 2h",
+    "tags": [
+      "template-noise"
+    ],
+    "sender": "admin",
+    "truthKind": "noise",
+    "expected": "muted",
+    "predKind": "noise",
+    "kindOk": true,
+    "predicted": "muted",
+    "unsafe": false,
+    "parsed": {
+      "kind": "noise",
+      "symbol": null,
+      "side": null,
+      "entry": null,
+      "stop": null,
+      "targets": [],
+      "leverage": null,
+      "confidence": 0.9,
+      "quote": ""
+    }
+  },
+  {
+    "id": "m265",
+    "text": "BNB up 7% today",
+    "tags": [
+      "template-noise"
+    ],
+    "sender": "admin",
+    "truthKind": "noise",
+    "expected": "muted",
+    "predKind": "noise",
+    "kindOk": true,
+    "predicted": "muted",
+    "unsafe": false,
+    "parsed": {
+      "kind": "noise",
+      "symbol": null,
+      "side": null,
+      "entry": null,
+      "stop": null,
+      "targets": [],
+      "leverage": null,
+      "confidence": 0.9,
+      "quote": ""
+    }
+  },
+  {
+    "id": "m266",
+    "text": "anyone trading AVAX today?",
+    "tags": [
+      "template-noise"
+    ],
+    "sender": "admin",
+    "truthKind": "noise",
+    "expected": "muted",
+    "predKind": "noise",
+    "kindOk": true,
+    "predicted": "muted",
+    "unsafe": false,
+    "parsed": {
+      "kind": "noise",
+      "symbol": null,
+      "side": null,
+      "entry": null,
+      "stop": null,
+      "targets": [],
+      "leverage": null,
+      "confidence": 0.9,
+      "quote": ""
+    }
+  },
+  {
+    "id": "m267",
+    "text": "ADA weekly close in 4h",
+    "tags": [
+      "template-noise"
+    ],
+    "sender": "admin",
+    "truthKind": "noise",
+    "expected": "muted",
+    "predKind": "noise",
+    "kindOk": true,
+    "predicted": "muted",
+    "unsafe": false,
+    "parsed": {
+      "kind": "noise",
+      "symbol": null,
+      "side": null,
+      "entry": null,
+      "stop": null,
+      "targets": [],
+      "leverage": null,
+      "confidence": 0.8,
+      "quote": ""
+    }
+  },
+  {
+    "id": "m268",
+    "text": "BNB volume picking up",
+    "tags": [
+      "template-noise"
+    ],
+    "sender": "admin",
+    "truthKind": "noise",
+    "expected": "muted",
+    "predKind": "noise",
+    "kindOk": true,
+    "predicted": "muted",
+    "unsafe": false,
+    "parsed": {
+      "kind": "noise",
+      "symbol": null,
+      "side": null,
+      "entry": null,
+      "stop": null,
+      "targets": [],
+      "leverage": null,
+      "confidence": 0.9,
+      "quote": ""
+    }
+  },
+  {
+    "id": "m269",
+    "text": "ETH up 1% today",
     "tags": [
       "template-noise"
     ],

@@ -14,6 +14,12 @@ export function audit(event: string, data: Record<string, unknown>): void {
   appendFileSync(AUDIT_FILE, JSON.stringify({ at: new Date().toISOString(), event, ...data }) + '\n')
 }
 
+/**
+ * Per-process nonce mixed into every orderLinkId. Card ids (chat:message:version) restart
+ * when the process restarts, so without this a new card could collide with an old order key.
+ */
+export const BOOT = Date.now().toString(36)
+
 export const cards = new Map<string, Card>()
 /** `${chatId}:${messageId}` → latest version number assigned (assigned synchronously, before any await). */
 export const latestVersion = new Map<string, number>()
@@ -40,5 +46,5 @@ export function setState(card: Card, state: Card['state'], extra: Partial<Card> 
   })
 }
 
-const ACTIVE: Card['state'][] = ['ready', 'blocked', 'unsure', 'countdown', 'placing']
+const ACTIVE: Card['state'][] = ['ready', 'holding', 'blocked', 'unsure', 'countdown', 'placing']
 export const isActive = (c: Card) => ACTIVE.includes(c.state)

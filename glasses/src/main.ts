@@ -113,7 +113,7 @@ function onTap() {
     console.log('[callout] tap ignored: screen just changed')
     return
   }
-  if (c.state === 'ready') void act('confirm')
+  if (c.state === 'ready' || c.state === 'holding') void act('confirm')
   else if (c.state === 'countdown') void act('cancel')
   else if (c.state === 'blocked' || c.state === 'unsure') void act('skip') // Skip is the only option
   else if (['filled', 'failed', 'cancelled'].includes(c.state)) void act('dismiss')
@@ -126,12 +126,12 @@ function onDoubleTap() {
     return
   }
   if (c.state === 'countdown') void act('cancel')
-  else if (['ready', 'blocked', 'unsure'].includes(c.state)) void act('skip')
+  else if (['ready', 'holding', 'blocked', 'unsure'].includes(c.state)) void act('skip')
   else if (['filled', 'failed', 'cancelled'].includes(c.state)) void act('dismiss')
 }
 
 function onSwipe(dir: 1 | -1) {
-  const cs = visibleCards().filter(c => ['ready', 'blocked', 'unsure'].includes(c.state))
+  const cs = visibleCards().filter(c => ['ready', 'holding', 'blocked', 'unsure'].includes(c.state))
   if (cs.length < 2) return
   const i = cs.findIndex(c => c.id === selectedId)
   selectedId = cs[(i + dir + cs.length) % cs.length]!.id

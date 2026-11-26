@@ -14,6 +14,7 @@ export function cardView(c: Card) {
   const p = c.parsed
   return {
     id: c.id,
+    action: c.action,
     state: c.state,
     edited: !!c.edited,
     sender: c.msg.senderName,
@@ -34,6 +35,8 @@ export function cardView(c: Card) {
     expiresAt: c.expiresAt,
     countdownEndsAt: c.countdownEndsAt ?? null,
     order: c.order ?? null,
+    position: c.position ?? null,
+    record: c.record ?? null,
     error: c.state === 'failed' ? (c.error ?? null) : null,
   }
 }
@@ -47,7 +50,7 @@ export function stateView() {
     session: {
       groups: config.allowedChatIds.size,
       muted: session.muted,
-      forYou: all.filter(c => c.state === 'ready').length,
+      forYou: all.filter(c => c.state === 'ready' || c.state === 'holding').length,
       expired: session.expired,
       last: session.lastResult,
     },
@@ -83,7 +86,7 @@ export async function startServer() {
 
   // Demo/replay: push a message straight into the pipeline (bots can't see other bots' messages).
   if (config.demoMode) {
-    let nextId = 1_000_000
+    let nextId = Date.now() // unique across restarts (Telegram ids are far smaller)
     app.post<{
       Body: { text: string; senderId?: string; chatId?: string; messageId?: number; sentAt?: number; senderName?: string }
     }>('/api/demo/message', async req => {

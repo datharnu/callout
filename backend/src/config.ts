@@ -33,6 +33,11 @@ export const config = {
   sizeUsd: num('CALLOUT_SIZE_USD', 200),
   maxSizeUsd: num('CALLOUT_MAX_SIZE_USD', 500),
 
+  // The user's own rules (0 disables a rule).
+  maxTradesPerDay: num('CALLOUT_MAX_TRADES_PER_DAY', 5),
+  maxDailyLossUsd: num('CALLOUT_MAX_DAILY_LOSS_USD', 50),
+  pauseAfterLosses: num('CALLOUT_PAUSE_AFTER_LOSSES', 2),
+
   // Checks.
   symbolWhitelist: new Set(
     (process.env.CALLOUT_SYMBOLS ?? 'BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,BNBUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,AVAXUSDT,TONUSDT')

@@ -2,11 +2,12 @@
 export const API_BASE: string = import.meta.env.VITE_CALLOUT_API ?? 'http://127.0.0.1:8787'
 
 export type CardState =
-  | 'ready' | 'blocked' | 'unsure' | 'countdown' | 'placing'
+  | 'ready' | 'holding' | 'blocked' | 'unsure' | 'countdown' | 'placing'
   | 'filled' | 'failed' | 'cancelled' | 'skipped' | 'expired' | 'superseded'
 
 export interface CardView {
   id: string
+  action: 'open' | 'close'
   state: CardState
   edited: boolean
   sender: string
@@ -26,7 +27,9 @@ export interface CardView {
   sizeUsd: number
   expiresAt: number
   countdownEndsAt: number | null
-  order: { orderId: string; side: string; qty: string; avgPrice?: string; status: string; receiptSent?: boolean } | null
+  order: { kind: 'open' | 'close'; orderId: string; side: string; qty: string; avgPrice?: string; status: string; receiptSent?: boolean } | null
+  position: { side: 'Buy' | 'Sell'; size: string; avgPrice: number; markPrice: number; pnlPct: number } | null
+  record: { seen: number; tp: number; sl: number; open: number; noEntry: number; ambiguous: number; synthetic: boolean } | null
   error: string | null
 }
 

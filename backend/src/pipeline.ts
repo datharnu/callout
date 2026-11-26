@@ -4,10 +4,15 @@ import { parseMessage } from './ai/parse.js'
 import { runChecks } from './checks.js'
 import { livePrice } from './market.js'
 import { audit, cards, latestVersion, messageKey, session, setState } from './store.js'
-import type { Card, IncomingMessage } from './types.js'
+import type { Card, IncomingMessage, PositionInfo } from './types.js'
+import { bybit } from './bybit/demo.js'
+import { insertCall } from './db.js'
+import { listPositions } from './positions.js'
+import { currentStats, ruleFlags, ruleSettings } from './rules.js'
+import { recordFor } from './track.js'
 
 /** Card states an edit may replace. Anything at/after countdown is never touched by an edit. */
-const REPLACEABLE: Card['state'][] = ['ready', 'blocked', 'unsure']
+const REPLACEABLE: Card['state'][] = ['ready', 'holding', 'blocked', 'unsure']
 
 export type IngestResult =
   | { outcome: 'ignored'; reason: string }
@@ -51,36 +56,56 @@ export async function ingest(msg: IncomingMessage): Promise<IngestResult> {
     return { outcome: 'muted', reason: 'noise' }
   }
 
-  // 4. Code checks against mainnet live price.
-  const price = parsed.symbol ? await livePrice(parsed.symbol) : undefined
   const now = Date.now()
-  const verdict = runChecks(
-    { parsed, rawText: text, livePrice: price, sentAt: msg.sentAt, now },
-    { symbolWhitelist: config.symbolWhitelist, maxEntryDistancePct: config.maxEntryDistancePct, callExpiryMs: config.callExpiryMs },
-  )
-
-  let state: Card['state'] = verdict.state
-  let flags = verdict.flags
-  if (error) flags = ["Couldn't read this clearly"]
-  if (parsed.kind === 'holding_update' && !error) {
-    // Holding cards (reduce-only Close) land on Nov 28. Until then: shown, never tradable.
-    state = 'unsure'
-    flags = ['holding update']
-  }
-
-  const card: Card = {
+  const base = {
     id: `${key}:${version}`,
     version,
     msg: { ...msg, text },
     parsed,
-    state,
-    flags,
-    facts: verdict.facts,
     createdAt: now,
     expiresAt: msg.sentAt + config.callExpiryMs,
     sizeUsd: config.sizeUsd,
     edited: version > 0,
     ...(error ? { error } : {}),
+  }
+
+  let card: Card
+  if (parsed.kind === 'holding_update' && !error) {
+    // 4a. Holding update: only relevant if the user holds that coin on Demo.
+    let pos: PositionInfo | undefined
+    let posError = false
+    try {
+      pos = parsed.symbol ? await positionInfo(parsed.symbol) : undefined
+    } catch {
+      posError = true
+    }
+    if (posError) {
+      card = { ...base, action: 'close', state: 'unsure', flags: ["couldn't read your position"], facts: {} }
+    } else if (!pos) {
+      session.muted++
+      return { outcome: 'muted', reason: 'holding update, no matching position' }
+    } else {
+      card = { ...base, action: 'close', state: 'holding', flags: [], facts: {}, position: pos }
+    }
+  } else {
+    // 4b. Code checks against mainnet live price, then the user's own rules.
+    const price = parsed.symbol ? await livePrice(parsed.symbol) : undefined
+    const verdict = runChecks(
+      { parsed, rawText: text, livePrice: price, sentAt: msg.sentAt, now },
+      { symbolWhitelist: config.symbolWhitelist, maxEntryDistancePct: config.maxEntryDistancePct, callExpiryMs: config.callExpiryMs },
+    )
+    let state: Card['state'] = verdict.state
+    let flags = error ? ["Couldn't read this clearly"] : verdict.flags
+    if (state === 'ready') {
+      const rf = await userRuleFlags()
+      if (rf.length) {
+        state = 'blocked'
+        flags = rf
+      }
+    }
+    card = { ...base, action: 'open', state, flags, facts: verdict.facts }
+    if (parsed.kind === 'trade_call') card.record = recordFor(msg.senderId, card.id)
+    recordCall(card)
   }
 
   // A newer edit arrived while we were parsing: this card is born superseded.
@@ -101,6 +126,47 @@ export async function ingest(msg: IncomingMessage): Promise<IngestResult> {
     ...(error ? { error } : {}),
   })
   return { outcome: 'card', card }
+}
+
+/** Rule flags, failing closed: if stats can't be read, the card is blocked. */
+export async function userRuleFlags(): Promise<string[]> {
+  try {
+    return ruleFlags(await currentStats(bybit), ruleSettings)
+  } catch (e) {
+    return [`rules: couldn't check (${(e as Error).message.slice(0, 40)})`]
+  }
+}
+
+export async function positionInfo(symbol: string): Promise<PositionInfo | undefined> {
+  const [p] = await listPositions(bybit, symbol)
+  if (!p) return undefined
+  const avg = Number(p.avgPrice)
+  const mark = Number(p.markPrice)
+  const pnlPct = ((mark - avg) / avg) * 100 * (p.side === 'Buy' ? 1 : -1)
+  return { side: p.side, size: p.size, avgPrice: avg, markPrice: mark, pnlPct }
+}
+
+/**
+ * Every complete trade call from an allowlisted sender seen on Telegram feeds the track record.
+ * Replayed/test messages don't (the demo's history comes only from the labeled synthetic seed).
+ */
+function recordCall(card: Card) {
+  const p = card.parsed
+  if (card.msg.source !== 'telegram') return
+  if (!p || p.kind !== 'trade_call' || !p.symbol || !p.side || !p.entry || !p.stop || p.targets[0] === undefined) return
+  insertCall({
+    id: card.id,
+    chat_id: card.msg.chatId,
+    sender_id: card.msg.senderId,
+    sender_name: card.msg.senderName,
+    symbol: p.symbol,
+    side: p.side,
+    entry: p.entry,
+    stop: p.stop,
+    target: p.targets[0],
+    sent_at: card.msg.sentAt,
+    synthetic: 0,
+  })
 }
 
 function supersedeOlder(key: string, newVersion: number, why: string) {

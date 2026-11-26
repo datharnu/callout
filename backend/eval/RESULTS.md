@@ -1,6 +1,6 @@
 # Callout parser + checks accuracy
 
-Run 2026-11-26T16:07:47.803Z · model `claude-haiku-5-5` · 260 synthetic messages (38 trade_call, 8 holding_update, 207 noise, 7 unsure; 6 from non-allowlisted senders).
+Run 2026-11-26T16:20:15.287Z · model `claude-haiku-5-5` · 269 synthetic messages (38 trade_call, 8 holding_update, 216 noise, 7 unsure; 6 from non-allowlisted senders).
 The set is synthetic and was written by the same team that wrote the parser prompt, so treat these numbers as a smoke test, not a benchmark.
 
 **Unsafe one-tap cards: 0** (a card you could place with one tap whose values differ from the message, or that the checks should have blocked).
@@ -11,7 +11,7 @@ The set is synthetic and was written by the same team that wrote the parser prom
 |---|---|---|---|
 | trade_call | 32 | 100.0% | 90.6% |
 | holding_update | 8 | 88.9% | 100.0% |
-| noise | 207 | 100.0% | 99.5% |
+| noise | 216 | 100.0% | 99.5% |
 | unsure | 7 | 70.0% | 100.0% |
 
 ## Field accuracy (29 trade calls parsed as trade calls)
@@ -21,12 +21,12 @@ The set is synthetic and was written by the same team that wrote the parser prom
 | symbol | 100.0% |
 | side | 100.0% |
 | entry | 100.0% |
-| stop | 96.6% |
+| stop | 100.0% |
 | targets | 100.0% |
 
 ## End-to-end decision
 
-- Final card state matches expectation: 252/260 (96.9%)
+- Final card state matches expectation: 261/269 (97.0%)
 - Tradable calls shown as tradable: 23/23
 - Non-allowlisted senders muted: 6/6
 - Parser errors (fell back to "unsure"): 0
