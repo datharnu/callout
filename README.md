@@ -6,6 +6,7 @@ Callout reads the Telegram trade-call groups you choose. It checks each call aga
 
 > Callout executes the user's own confirmed decision, never the group's advice. **Not financial advice.** Demo money only: orders go to Bybit Demo Trading, and no user funds are held.
 
+- **▶ Demo video (3 min):** _link added after recording_
 - **Tracks:** 03 Exchanges & Stocks (main), 01 Messaging & News. Also entered for Best Telegram integration.
 - **Who it's for:** active crypto traders who follow Telegram call groups and trade on Bybit.
 - **Status:** works end to end in the Even Hub simulator. A real Telegram call was placed on Bybit Demo from the glasses UI, with the receipt replied in the group. Voice commands work end to end through real speech-to-text (screenshots below).
@@ -23,6 +24,22 @@ Callout reads the Telegram trade-call groups you choose. It checks each call aga
 Call groups post hundreds of messages a day. A few matter, and many calls are bad or outright scams. Traders decide in seconds without knowing whether the price has already moved, whether the caller is any good, or whether the trade breaks their own rules.
 
 Callout runs in **session mode**: start a trading session, keep Callout open, and step away from the screen without leaving the session. It does **not** alert you when the app is closed. G2 can't show anything then, and iOS suspends the app in the background.
+
+## Business
+
+**Who pays, and why.** Active traders already decide on Telegram calls in seconds, with no checks and no proof. Callout sits at that moment: it filters the noise, checks the numbers, and turns "I saw a call" into an order in one glance.
+
+| Revenue line | How it works |
+|---|---|
+| **Pro subscription** for active traders | Free: one group, session mode, demo trading. Pro: more groups, your own rules, voice, and real-exchange execution once that is licensed (below). |
+| **Verified caller badges** | Callers apply for a public, verified record built only from calls Callout *saw*, so deleted losing calls still count. Good callers want proof; scammers can't fake it. Callers pay for the badge, traders get a trust signal. |
+| **Exchange partnerships** | Callout already routes confirmed orders to an exchange API. With real execution, referral or revenue-share agreements with exchanges are a natural fit. |
+
+**Why it's defensible.** The record of calls Callout has observed grows with every user and group, and it can't be rebuilt after the fact: a caller's history is only verifiable from the moment someone was watching. More users means more groups observed, which means better records for everyone.
+
+**Why glasses.** Calls are time-critical and arrive while you're doing something else. A glance plus a tap (or "half size, place it") beats unlocking a phone, finding the chat, and opening an exchange app.
+
+**Guardrails before real money.** Callout never gives advice: it executes the user's own confirmed decision. Real-money execution would come only after legal review and the licensing required where it operates (for example VARA in Dubai, or MiCA in the EU), with the same safety design: code-only checks, user rules, cancel window, reduce-only closes.
 
 ## How it works
 
@@ -230,6 +247,16 @@ Nothing in this repository was written before the build week. The git history st
 - **Small, self-authored eval set** (see the accuracy caveat above).
 - **Voice not yet tested on the G2 microphone.** Tested with 6 synthetic voices through real speech-to-text, and live by a person speaking into the simulator through a laptop mic. English only. Needs a network connection.
 - **Speech goes to a third party.** Short utterances (only while a card is shown) are sent to ElevenLabs for transcription. Callout itself stores no audio.
+
+## Roadmap
+
+1. **Physical G2 testing**, including voice on the glasses' mic with its speaker detection.
+2. **Pairing code + hosted backend**, so the glasses app connects to a user's own backend securely instead of `127.0.0.1`.
+3. **Telegram user-account login** (MTProto) to read channels you follow but don't run.
+4. **Partial take-profit and multiple targets**: "secure 50%" on holding cards, all TPs attached to the order.
+5. **Verified caller records** built from real observed calls (replacing the synthetic demo data), shared across users who opt in.
+6. **Real-exchange execution** after the licensing and legal review above.
+7. **More lenses**: the same "check before you act" card for personal and work messages (for example, a payment request checked against your contacts before you approve it).
 
 ## Feature requests
 
