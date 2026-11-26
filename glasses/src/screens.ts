@@ -85,7 +85,8 @@ function levels(c: CardView): string[] {
 
 export function cardScreen(c: CardView, now: number, pos: string, v?: VoiceUi): string {
   const body = cardBody(c, now, pos)
-  const line = c.state === 'placing' ? '' : voiceLine(c, v, now)
+  // A backend notice (e.g. another judge's order is open) replaces the mic line while present.
+  const line = c.notice ? clip(safe(c.notice), 64) : c.state === 'placing' ? '' : voiceLine(c, v, now)
   return line ? `${body}\n${line}` : body
 }
 
@@ -168,7 +169,7 @@ export function resultScreen(c: CardView): string {
     return [
       `${o.kind === 'close' ? 'CLOSED' : 'FILLED'} ${o.qty} ${coin(c.symbol)} @ ${Number(o.avgPrice).toLocaleString('en-US')}${o.kind === 'close' ? ' (reduce-only)' : ''}`,
       `Order ${id} · Bybit Demo`,
-      o.receiptSent ? 'Receipt sent to Telegram' : 'No receipt (replayed message)',
+      o.receiptSent ? 'Receipt sent to Telegram' : 'No receipt (sample call, not from Telegram)',
       '',
       '> Tap to continue',
     ].join('\n')

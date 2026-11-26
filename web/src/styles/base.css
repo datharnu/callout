@@ -1,0 +1,137 @@
+@import '@fontsource-variable/inter/opsz.css';
+@import '@fontsource-variable/geist-mono/index.css';
+
+:root {
+  --bg: #fbfbf9;
+  --surface: #f3f4f1;
+  --card: #ffffff;
+  --line: #e4e6e1;
+  --line-strong: #d3d6d0;
+  --ink: #15191a;
+  --ink-2: #6b726f;
+  --ink-3: #9aa09c;
+  --green: #1f6b45;
+  --green-2: #2a8a5a;
+  --green-soft: rgba(31, 107, 69, 0.08);
+  --phosphor: #43e06a;
+  --glass: #050806;
+  --amber: #d8920f;
+  --amber-soft: rgba(216, 146, 15, 0.14);
+  --red: #b4432f;
+
+  --sans: 'Inter Variable', 'Inter', system-ui, -apple-system, sans-serif;
+  --mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+
+  --page: 1200px;
+  --gutter: 32px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --shadow-window: 0 40px 80px -24px rgba(21, 25, 26, 0.32), 0 0 0 1px rgba(21, 25, 26, 0.06);
+  --shadow-card: 0 20px 40px -18px rgba(21, 25, 26, 0.16), 0 0 0 1px rgba(21, 25, 26, 0.05);
+  --shadow-bar: 0 8px 16px -8px rgba(21, 25, 26, 0.14);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-optical-sizing: auto;
+}
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+code, kbd, .mono { font-family: var(--mono); }
+::selection { background: var(--amber-soft); }
+
+/* ── type ─────────────────────────────────────────────────────────────── */
+.t-display { font-size: clamp(44px, 6.2vw, 80px); line-height: 1.02; letter-spacing: -0.035em; font-weight: 600; }
+.t-h2 { font-size: clamp(30px, 3.6vw, 44px); line-height: 1.12; letter-spacing: -0.025em; font-weight: 600; }
+.t-h3 { font-size: 22px; line-height: 1.25; letter-spacing: -0.015em; font-weight: 600; }
+.t-lead { font-size: clamp(17px, 1.5vw, 20px); line-height: 1.5; color: var(--ink-2); letter-spacing: -0.005em; }
+.t-body { font-size: 15.5px; line-height: 1.6; color: var(--ink-2); }
+.t-small { font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+.t-mono { font-family: var(--mono); font-size: 13px; letter-spacing: 0; }
+.ink-2 { color: var(--ink-2); }
+.eyebrow { font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--green); }
+
+/* ── layout ───────────────────────────────────────────────────────────── */
+.page { position: relative; overflow-x: clip; }
+/* faint vertical guide lines framing the content column */
+.page::before, .page::after {
+  content: ''; position: fixed; top: 0; bottom: 0; width: 1px; background: var(--line); z-index: 0; pointer-events: none;
+}
+.page::before { left: max(var(--gutter), calc(50% - var(--page) / 2)); }
+.page::after { right: max(var(--gutter), calc(50% - var(--page) / 2)); }
+.wrap { position: relative; z-index: 1; width: min(var(--page), calc(100% - 2 * var(--gutter))); margin: 0 auto; }
+.inner { padding: 0 40px; }
+@media (max-width: 720px) { .inner { padding: 0 18px; } :root { --gutter: 12px; } }
+.section { padding: 128px 0; border-top: 1px solid var(--line); }
+.section.tight { padding: 88px 0; }
+.rule { height: 1px; background: var(--line); }
+
+/* ── buttons ──────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 999px;
+  font-size: 14.5px; font-weight: 550; letter-spacing: -0.005em; white-space: nowrap;
+  transition: transform 0.2s var(--ease), background 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.btn:active { transform: translateY(1px) scale(0.99); }
+.btn-solid { background: var(--ink); color: #fff; box-shadow: var(--shadow-bar); }
+.btn-solid:hover { background: #2a3031; }
+.btn-outline { background: var(--card); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.btn-outline:hover { background: var(--surface); }
+.btn-green { background: var(--green); color: #fff; box-shadow: var(--shadow-bar); }
+.btn-green:hover { background: var(--green-2); }
+.btn-sm { height: 34px; padding: 0 14px; font-size: 13.5px; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 999px;
+  background: var(--card); box-shadow: inset 0 0 0 1px var(--line); font-size: 13.5px; color: var(--ink-2);
+}
+.pill b { font-weight: 600; color: #fff; background: var(--green); border-radius: 999px; padding: 2px 9px; font-size: 12px; }
+.tag {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 6px; font-family: var(--mono);
+  font-size: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink-2);
+}
+.tag.amber { background: var(--amber-soft); box-shadow: inset 0 0 0 1px rgba(216, 146, 15, 0.35); color: #7a5205; }
+.tag.green { background: var(--green-soft); box-shadow: inset 0 0 0 1px rgba(31, 107, 69, 0.25); color: var(--green); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; }
+
+.card {
+  background: var(--card); border-radius: 14px; box-shadow: var(--shadow-card);
+}
+
+/* ── G2 display ───────────────────────────────────────────────────────── */
+.g2 {
+  position: relative; background: var(--glass); border-radius: 22px; padding: 18px;
+  box-shadow: 0 30px 60px -20px rgba(5, 8, 6, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+.g2-screen { position: relative; aspect-ratio: 2 / 1; overflow: hidden; border-radius: 8px; background: #050806; }
+.g2-screen img { width: 100%; height: 100%; object-fit: contain; }
+.g2-caption { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-family: var(--mono); font-size: 11.5px; color: rgba(214, 233, 220, 0.55); letter-spacing: 0.02em; }
+
+/* soft pastel "sky" behind floating windows: CSS only */
+.sky {
+  position: relative; border-radius: 24px; overflow: hidden;
+  background:
+    radial-gradient(60% 80% at 18% 20%, rgba(255, 214, 224, 0.9), transparent 60%),
+    radial-gradient(55% 70% at 85% 25%, rgba(196, 220, 255, 0.95), transparent 62%),
+    radial-gradient(70% 70% at 50% 100%, rgba(203, 236, 214, 0.9), transparent 65%),
+    linear-gradient(180deg, #eef1f7 0%, #f6efe9 100%);
+}
+.sky::after { /* fine grain so the gradient reads as light, not flat colour */
+  content: ''; position: absolute; inset: 0; opacity: 0.35; mix-blend-mode: soft-light; pointer-events: none;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.7) 1px, transparent 1px); background-size: 3px 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

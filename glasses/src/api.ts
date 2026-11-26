@@ -1,5 +1,16 @@
 // Backend client. The glasses app holds no secrets: it only reads state and sends the user's taps.
-export const API_BASE: string = import.meta.env.VITE_CALLOUT_API ?? 'http://127.0.0.1:8787'
+// The sandbox token (docs/HOSTED.md) identifies this visitor's sandbox; it is not an API key.
+import { apiBase, readToken } from './auth'
+
+export const API_BASE: string = apiBase()
+const TOKEN = readToken()
+
+/** The backend did not recognise this session (missing/expired token). */
+export class AuthError extends Error {}
+
+function headers(extra: Record<string, string> = {}): Record<string, string> {
+  return TOKEN ? { authorization: `Bearer ${TOKEN}`, ...extra } : extra
+}
 
 export type CardState =
   | 'ready' | 'holding' | 'blocked' | 'unsure' | 'countdown' | 'placing'
@@ -35,6 +46,8 @@ export interface CardView {
   voiceHint: string
   record: { seen: number; tp: number; sl: number; open: number; noEntry: number; ambiguous: number; synthetic: boolean } | null
   error: string | null
+  /** Short neutral message from the backend, shown for a few seconds (e.g. a refused tap). */
+  notice?: string | null
 }
 
 export interface StateView {
@@ -44,7 +57,8 @@ export interface StateView {
 }
 
 export async function fetchState(): Promise<StateView> {
-  const r = await fetch(`${API_BASE}/api/state`)
+  const r = await fetch(`${API_BASE}/api/state`, { headers: headers() })
+  if (r.status === 401) throw new AuthError('session not recognised')
   if (!r.ok) throw new Error(`state ${r.status}`)
   return (await r.json()) as StateView
 }
@@ -62,7 +76,7 @@ export interface VoiceResponse {
 export async function sendVoice(id: string, pcm: Uint8Array): Promise<VoiceResponse> {
   const r = await fetch(`${API_BASE}/api/cards/${encodeURIComponent(id)}/voice`, {
     method: 'POST',
-    headers: { 'content-type': 'application/octet-stream' },
+    headers: headers({ 'content-type': 'application/octet-stream' }),
     body: new Uint8Array(pcm),
   })
   if (!r.ok) throw new Error(`voice ${r.status}`)
@@ -72,7 +86,7 @@ export async function sendVoice(id: string, pcm: Uint8Array): Promise<VoiceRespo
 export type ActionResult = { ok: true; card: CardView } | { ok: false; error: string }
 
 export async function sendAction(id: string, action: Action): Promise<ActionResult> {
-  const r = await fetch(`${API_BASE}/api/cards/${encodeURIComponent(id)}/${action}`, { method: 'POST' })
+  const r = await fetch(`${API_BASE}/api/cards/${encodeURIComponent(id)}/${action}`, { method: 'POST', headers: headers() })
   const body = (await r.json()) as any
   return r.ok ? { ok: true, card: body as CardView } : { ok: false, error: String(body?.error ?? r.status) }
 }

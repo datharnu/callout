@@ -13,6 +13,10 @@ import { recordFor, refreshOutcomes } from '../src/track.js'
 const senders = [...config.allowedSenderIds]
 if (!senders.length) throw new Error('No allowlisted senders in .env')
 
+if (process.argv.includes('--if-empty') && (db.prepare('SELECT COUNT(*) n FROM calls WHERE synthetic = 1').get() as { n: number }).n > 0) {
+  console.log('Synthetic track record already present.')
+  process.exit(0)
+}
 db.prepare('DELETE FROM calls WHERE synthetic = 1').run()
 if (process.argv.includes('--clear')) {
   console.log('Synthetic calls removed.')

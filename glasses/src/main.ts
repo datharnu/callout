@@ -1,49 +1,18 @@
-import {
-  waitForEvenAppBridge,
-  TextContainerProperty,
-  CreateStartUpPageContainer,
-  TextContainerUpgrade,
-  OsEventTypeList,
-  AudioInputSource,
-  StartUpPageCreateResult,
-  RebuildPageContainer,
-} from '@evenrealities/even_hub_sdk'
-import { fetchState, sendAction, sendVoice, type Action, type CardView, type StateView } from './api'
+import { fetchState, sendAction, sendVoice, AuthError, type Action, type CardView, type StateView } from './api'
+import { createBridge } from './bridge'
 import { cardScreen, homeScreen, type VoiceUi } from './screens'
-import { Vad, type SpeakerRole } from './vad'
+import { Vad } from './vad'
 
 const POLL_MS = 1000
 const TAP_GUARD_MS = 1000 // ignore taps right after the screen changes (no accidental orders on a new card)
 
-const bridge = await waitForEvenAppBridge()
-
-const main = new TextContainerProperty({
-  xPosition: 0,
-  yPosition: 0,
-  width: 576,
-  height: 288,
-  borderWidth: 0,
-  borderColor: 5,
-  paddingLength: 6,
-  containerID: 1,
-  containerName: 'main',
-  content: 'CALLOUT · connecting...',
-  isEventCapture: 1,
-})
-// The startup page can only be created once per session. After a reload (dev hot-reload, or the
-// WebView reloading on the phone) creation fails, so rebuild the existing page instead; otherwise
-// every later textContainerUpgrade silently goes nowhere and the glasses freeze on old content.
-// A host that lost track of the previous session may never answer at all, so don't wait forever.
-const withTimeout = <T,>(pr: Promise<T>, ms: number): Promise<T | 'timeout'> =>
-  Promise.race([pr, new Promise<'timeout'>(r => setTimeout(() => r('timeout'), ms))])
-const created = await withTimeout(bridge.createStartUpPageContainer(new CreateStartUpPageContainer({ containerTotalNum: 1, textObject: [main] })), 4000)
-if (created !== StartUpPageCreateResult.success) {
-  const rebuilt = await withTimeout(bridge.rebuildPageContainer(new RebuildPageContainer({ containerTotalNum: 1, textObject: [main] })), 4000)
-  console.log(`[callout] page create → ${created}; rebuilt existing page → ${rebuilt}`)
-} else console.log('[callout] page created')
+// Even Hub SDK on the glasses / official simulator; postMessage in the browser preview (/try).
+const bridge = await createBridge()
+await bridge.createPage('CALLOUT · connecting...')
 
 let state: StateView | null = null
 let offline = false
+let authFailed = false
 let selectedId: string | null = null
 let shownKey = '' // identity of what's on screen (card id + state) for the tap guard
 let shownAt = 0
@@ -66,7 +35,7 @@ async function setMic(on: boolean) {
   micWanted = on
   if (!on) vad.reset()
   try {
-    const ok = await bridge.audioControl(on, AudioInputSource.Glasses)
+    const ok = await bridge.audioControl(on)
     micOn = on && ok
     micUnavailable = on && !ok
     console.log(`[callout] mic ${on ? 'on' : 'off'} → ${ok}`)
@@ -139,7 +108,10 @@ function render() {
   const c = selected()
   let content: string
   let key: string
-  if (!state) {
+  if (authFailed) {
+    content = 'CALLOUT\n\nSession not recognised.\nOpen Callout again from your link.'
+    key = 'auth'
+  } else if (!state) {
     content = offline ? 'CALLOUT\n\nBackend offline · retrying' : 'CALLOUT · connecting...'
     key = 'boot'
   } else if (!c) {
@@ -163,7 +135,7 @@ function render() {
   void setMic(!!c && VOICE_STATES.includes(c.state))
   if (content !== lastContent) {
     lastContent = content
-    void bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 1, containerName: 'main', content }))
+    void bridge.update(content)
   }
 }
 
@@ -173,8 +145,10 @@ async function poll() {
     state = await fetchState()
     clockOffset = state.now - Date.now()
     offline = false
-  } catch {
-    offline = true
+    authFailed = false
+  } catch (e) {
+    if (e instanceof AuthError) authFailed = true
+    else offline = true
   }
   render()
 }
@@ -212,7 +186,7 @@ function onTap() {
 function onDoubleTap() {
   const c = selected()
   if (!c) {
-    void bridge.shutDownPageContainer(1) // home: exit app
+    void bridge.shutdown() // home: exit app
     return
   }
   if (c.state === 'countdown') void act('cancel')
@@ -228,24 +202,12 @@ function onSwipe(dir: 1 | -1) {
   render()
 }
 
-// Tap = CLICK_EVENT (0), which protobuf omits on the wire, so `eventType` can be undefined.
-// Resolve the default inside the envelope check only (see template notes).
-function eventTypeOf(envelope?: { eventType?: OsEventTypeList }): OsEventTypeList | null {
-  if (!envelope) return null
-  return envelope.eventType ?? OsEventTypeList.CLICK_EVENT
-}
-
-const unsubscribe = bridge.onEvenHubEvent(event => {
-  const sys = eventTypeOf(event.sysEvent)
-  const text = eventTypeOf(event.textEvent)
-  const is = (t: OsEventTypeList) => sys === t || text === t
-
-  const audio = event.audioEvent
-  if (audio) {
+const unsubscribe = bridge.onEvent(e => {
+  if (e.kind === 'audio') {
     if (!micOn) return
     const wasSpeaking = vad.speaking
     const wasSilent = vad.silentInput
-    vad.push(audio.audioPcm, (audio.speakerRole as string as SpeakerRole) ?? 'unknown')
+    vad.push(e.pcm, e.role ?? 'unknown')
     if (wasSilent !== vad.silentInput) render()
     if (!wasSpeaking && vad.speaking) {
       voiceCardId = selected()?.id ?? null
@@ -253,12 +215,11 @@ const unsubscribe = bridge.onEvenHubEvent(event => {
     }
     return
   }
-
-  if (is(OsEventTypeList.DOUBLE_CLICK_EVENT)) return onDoubleTap()
-  if (is(OsEventTypeList.CLICK_EVENT)) return onTap()
-  if (is(OsEventTypeList.SCROLL_BOTTOM_EVENT)) return onSwipe(1)
-  if (is(OsEventTypeList.SCROLL_TOP_EVENT)) return onSwipe(-1)
-  if (sys === OsEventTypeList.SYSTEM_EXIT_EVENT || sys === OsEventTypeList.ABNORMAL_EXIT_EVENT) {
+  if (e.kind === 'double_click') return onDoubleTap()
+  if (e.kind === 'click') return onTap()
+  if (e.kind === 'down') return onSwipe(1)
+  if (e.kind === 'up') return onSwipe(-1)
+  if (e.kind === 'exit') {
     clearInterval(pollTimer)
     clearInterval(tickTimer)
     void bridge.audioControl(false)

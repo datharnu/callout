@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import type { Card } from './types.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const LOG_DIR = path.resolve(here, '../logs')
+const LOG_DIR = process.env.CALLOUT_LOG_DIR ?? path.resolve(here, '../logs') // /data/logs on the host's volume
 const AUDIT_FILE = path.join(LOG_DIR, 'audit.jsonl')
 mkdirSync(LOG_DIR, { recursive: true })
 

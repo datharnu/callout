@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+video/
+screenshots/
+backend/data/
+backend/logs/
+backend/eval/results.json
+*.ehpk
+BRIEF.md
+CLAUDE.md
+VIDEO_SCRIPT.md

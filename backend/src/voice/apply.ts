@@ -82,7 +82,7 @@ export async function handleVoice(sb: Sandbox, cardId: string, pcm: Buffer): Pro
         case 'size': {
           const prev = { factor: card.sizeFactor, usd: card.sizeUsd }
           card.sizeFactor = cmd.factor
-          card.sizeUsd = Math.min(config.sizeUsd * cmd.factor, config.maxSizeUsd) // settings × factor, capped
+          card.sizeUsd = Math.min(sb.sizeUsd * cmd.factor, config.maxSizeUsd) // this sandbox's size × factor, capped
           const problem = await sizeProblem(card)
           if (problem) {
             card.sizeFactor = prev.factor
