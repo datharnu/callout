@@ -1,0 +1,18 @@
+import { config } from './config.js'
+import { onReceipt } from './executor.js'
+import { sweepExpired } from './pipeline.js'
+import { startServer } from './server.js'
+import { sendReceipt, startTelegram } from './telegram.js'
+
+console.log(
+  `Callout backend · size $${config.sizeUsd} (cap $${config.maxSizeUsd}) · ${config.allowedChatIds.size} chat(s), ` +
+    `${config.allowedSenderIds.size} sender(s) allowlisted · Bybit DEMO`,
+)
+if (!config.allowedChatIds.size || !config.allowedSenderIds.size) {
+  console.warn('WARNING: allowlist is empty. No message will ever become a card.')
+}
+
+onReceipt(sendReceipt)
+setInterval(() => sweepExpired(), 5000).unref()
+await startServer()
+if (process.env.CALLOUT_NO_TELEGRAM !== '1') await startTelegram()
