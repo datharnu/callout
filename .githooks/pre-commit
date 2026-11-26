@@ -1,0 +1,9 @@
+#!/bin/sh
+# Block commits that contain any secret value from the repo-root .env.
+[ -f .env ] || exit 0
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+echo "$staged" | grep -qE '(^|/)\.env$' && { echo "pre-commit: refusing to commit .env"; exit 1; }
+grep -E '^(BYBIT_[A-Z_]*(KEY|SECRET)|[A-Z_]*TOKEN|[A-Z_]*API_KEY)=' .env | cut -d= -f2- | tr -d "\"' \r" | while read -r v; do
+  [ ${#v} -ge 8 ] || continue
+  if git diff --cached -U0 | grep -qF -- "$v"; then echo "pre-commit: a secret from .env appears in staged changes. Aborting."; exit 1; fi
+done || exit 1

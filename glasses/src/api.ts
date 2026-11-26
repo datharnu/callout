@@ -27,6 +27,7 @@ export interface CardView {
   sizeUsd: number
   expiresAt: number
   countdownEndsAt: number | null
+  cancelWindowMs: number
   order: { kind: 'open' | 'close'; orderId: string; side: string; qty: string; avgPrice?: string; status: string; receiptSent?: boolean } | null
   position: { side: 'Buy' | 'Sell'; size: string; avgPrice: number; markPrice: number; pnlPct: number } | null
   record: { seen: number; tp: number; sl: number; open: number; noEntry: number; ambiguous: number; synthetic: boolean } | null

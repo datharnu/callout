@@ -121,7 +121,7 @@ function actionLabel(c: CardView): string {
 }
 
 export function countdownScreen(c: CardView, now: number): string {
-  const total = 5000
+  const total = c.cancelWindowMs || 5000
   const left = Math.max(0, (c.countdownEndsAt ?? now) - now)
   const n = Math.round((left / total) * BAR_WIDTH)
   return [

@@ -34,6 +34,7 @@ export function cardView(c: Card) {
     sizeUsd: c.sizeUsd,
     expiresAt: c.expiresAt,
     countdownEndsAt: c.countdownEndsAt ?? null,
+    cancelWindowMs: config.cancelWindowMs,
     order: c.order ?? null,
     position: c.position ?? null,
     record: c.record ?? null,
