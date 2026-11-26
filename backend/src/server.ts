@@ -1,5 +1,5 @@
 // HTTP API for the glasses app. Bound to 127.0.0.1 by default: no auth/pairing yet,
-// so it must not be exposed publicly until pairing (BRIEF §5 #17) exists.
+// so it must not be exposed publicly until a glasses-to-user pairing step exists.
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import { config } from './config.js'

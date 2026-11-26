@@ -1,4 +1,4 @@
-// Seed a SYNTHETIC caller track record for the demo (BRIEF §8).
+// Seed a SYNTHETIC caller track record for the demo (see README, "Caller track record").
 // Calls are invented, but each uses a real past mainnet price as entry at a real timestamp from the
 // last 30 days, so the outcomes (TP / SL / open, from 1-minute candles) are what really happened.
 // Rows are flagged synthetic=1 and the UI labels them "synthetic".

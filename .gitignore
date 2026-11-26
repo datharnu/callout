@@ -14,3 +14,7 @@ screenshots/tmp/
 .DS_Store
 eval/results.json
 backend/data/
+
+# private planning docs (kept local, never published)
+BRIEF.md
+CLAUDE.md

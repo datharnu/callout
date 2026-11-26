@@ -165,7 +165,7 @@ screenshots/        simulator captures
 
 Nothing in this repository was written before the build week. The git history starts on Nov 26, 2026. Third-party starting points:
 
-- `glasses/` began from the official **Even Hub minimal template** (`npx degit even-realities/evenhub-templates/minimal`). We upgraded its dependencies and replaced `src/` with Callout's screens and input handling.
+- `glasses/` began from the official **Even Hub minimal template** (`npx degit even-realities/evenhub-templates/minimal`). We upgraded its dependencies and replaced `src/` with Callout's screens and input handling. Its MIT notice is in [`glasses/THIRD_PARTY_NOTICES.md`](glasses/THIRD_PARTY_NOTICES.md).
 - Libraries: `@evenrealities/even_hub_sdk`, simulator and CLI; `@anthropic-ai/sdk`; `grammy`; `fastify`; `zod`; `better-sqlite3`.
 
 ## Limitations
