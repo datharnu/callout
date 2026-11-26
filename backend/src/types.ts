@@ -87,6 +87,7 @@ export interface VoiceNote {
 
 export interface Card {
   id: string // `${chatId}:${messageId}:${version}`, also the idempotency key
+  sandboxId: string // which sandbox (owner or a judge session) this card belongs to
   action: 'open' | 'close'
   version: number // 0 for original, increments on each edit
   msg: IncomingMessage
@@ -108,4 +109,6 @@ export interface Card {
   voicePending?: { prefix: string; until: number } // unfinished command ("set stop…") waiting for its price
   edited?: boolean // created from an edited Telegram message
   dismissed?: boolean // result screen acknowledged on the glasses
+  notice?: string // transient, neutral message for the glasses (e.g. why a tap was refused)
+  noticeAt?: number
 }

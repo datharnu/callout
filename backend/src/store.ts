@@ -1,4 +1,4 @@
-// In-memory card store + append-only audit log (JSONL).
+// Card helpers + append-only audit log (JSONL). Cards themselves live in their sandbox (sandbox.ts).
 // Privacy: only cards (allowlisted senders' call-like messages) are recorded; noise is only counted.
 import { appendFileSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
@@ -19,17 +19,6 @@ export function audit(event: string, data: Record<string, unknown>): void {
  * when the process restarts, so without this a new card could collide with an old order key.
  */
 export const BOOT = Date.now().toString(36)
-
-export const cards = new Map<string, Card>()
-/** `${chatId}:${messageId}` → latest version number assigned (assigned synchronously, before any await). */
-export const latestVersion = new Map<string, number>()
-
-export const session = {
-  startedAt: Date.now(),
-  muted: 0, // allowlisted-chat messages that didn't become a card (noise, non-allowlisted senders, commands)
-  expired: 0, // cards that expired before the user acted ("while away")
-  lastResult: '' as string,
-}
 
 export const messageKey = (chatId: string, messageId: number) => `${chatId}:${messageId}`
 

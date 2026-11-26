@@ -16,11 +16,13 @@
     "seed:track": "tsx scripts/seed-track-record.ts",
     "e2e:voice": "tsx scripts/e2e-voice.ts",
     "eval:voice": "tsx eval/voice.ts",
-    "demo": "tsx scripts/demo-run.ts"
+    "demo": "tsx scripts/demo-run.ts",
+    "e2e:judge": "tsx scripts/e2e-judge.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.14.0",
     "@fastify/cors": "^11.4.3",
+    "@fastify/static": "^11.0.0",
     "better-sqlite3": "^12.11.1",
     "dotenv": "^18.0.10",
     "fastify": "^5.12.8",

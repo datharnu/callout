@@ -66,16 +66,21 @@ export function insertCall(c: Omit<CallRow, 'outcome' | 'outcome_at' | 'checked_
   insertCallStmt.run(c)
 }
 
+// Migration: orders are per sandbox (owner or a judge session). Existing rows are the owner's.
+if (!(db.prepare(`PRAGMA table_info(orders)`).all() as { name: string }[]).some(c => c.name === 'sandbox_id')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN sandbox_id TEXT NOT NULL DEFAULT 'owner'`)
+}
+
 const insertOrderStmt = db.prepare(`
-  INSERT OR REPLACE INTO orders (card_id, kind, order_id, order_link_id, symbol, side, qty, avg_price, status, created_at)
-  VALUES (@card_id, @kind, @order_id, @order_link_id, @symbol, @side, @qty, @avg_price, @status, @created_at)`)
+  INSERT OR REPLACE INTO orders (card_id, kind, order_id, order_link_id, symbol, side, qty, avg_price, status, created_at, sandbox_id)
+  VALUES (@card_id, @kind, @order_id, @order_link_id, @symbol, @side, @qty, @avg_price, @status, @created_at, @sandbox_id)`)
 export function insertOrder(o: {
   card_id: string; kind: 'open' | 'close'; order_id: string; order_link_id: string; symbol: string
-  side: string; qty: string; avg_price: string | null; status: string; created_at: number
+  side: string; qty: string; avg_price: string | null; status: string; created_at: number; sandbox_id: string
 }): void {
   insertOrderStmt.run(o)
 }
 
-export function filledOpensSince(sinceMs: number): number {
-  return (db.prepare(`SELECT COUNT(*) n FROM orders WHERE kind='open' AND status='Filled' AND created_at >= ?`).get(sinceMs) as { n: number }).n
+export function filledOpensSince(sinceMs: number, sandboxId = 'owner'): number {
+  return (db.prepare(`SELECT COUNT(*) n FROM orders WHERE kind='open' AND status='Filled' AND created_at >= ? AND sandbox_id = ?`).get(sinceMs, sandboxId) as { n: number }).n
 }

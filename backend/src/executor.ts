@@ -9,7 +9,9 @@ import { insertOrder } from './db.js'
 import { instrument, livePrice, roundToTick } from './market.js'
 import { positionInfo, userRuleFlags } from './pipeline.js'
 import { invalidateStats } from './rules.js'
-import { audit, BOOT, cards, session, setState } from './store.js'
+import { audit, BOOT, setState } from './store.js'
+import { JUDGE_AUTO_CLOSE_MS, judgePosition, sandboxById, type Sandbox } from './sandbox.js'
+import { closePosition, listPositions } from './positions.js'
 import type { Card, OrderResult } from './types.js'
 
 const timers = new Map<string, NodeJS.Timeout>()
@@ -27,11 +29,14 @@ export class ActionError extends Error {
   }
 }
 
-function getCard(id: string): Card {
-  const c = cards.get(id)
+function getCard(sb: Sandbox, id: string): Card {
+  const c = sb.cards.get(id)
   if (!c) throw new ActionError(404, 'card not found')
   return c
 }
+const sbOf = (card: Card) => sandboxById(card.sandboxId)!
+/** Order keys are unique per process start, sandbox and card. */
+const orderKey = (card: Card) => `${BOOT}:${card.sandboxId}:${card.id}`
 
 /** Still in the cancel window? (A cancel can land while we await I/O.) */
 const counting = (card: Card) => (card.state as Card['state']) === 'countdown'
@@ -40,7 +45,7 @@ const counting = (card: Card) => (card.state as Card['state']) === 'countdown'
 async function recheck(card: Card, stage: string): Promise<boolean> {
   const p = card.parsed!
   if (card.action === 'close') {
-    const pos = await positionInfo(p.symbol!).catch(() => undefined)
+    const pos = await positionInfo(sbOf(card), p.symbol!).catch(() => undefined)
     if (!counting(card)) return false
     if (!pos) {
       setState(card, 'blocked', { flags: ['position already closed', `re-check at ${stage}`] })
@@ -54,7 +59,7 @@ async function recheck(card: Card, stage: string): Promise<boolean> {
     { parsed: p, rawText: card.msg.text, livePrice: price, sentAt: card.msg.sentAt, now: Date.now(), stopOverride: card.userStop },
     { symbolWhitelist: config.symbolWhitelist, maxEntryDistancePct: config.maxEntryDistancePct, callExpiryMs: config.callExpiryMs },
   )
-  const rules = v.state === 'ready' ? await userRuleFlags() : []
+  const rules = v.state === 'ready' ? await userRuleFlags(sbOf(card)) : []
   if (!counting(card)) return false
   card.facts = v.facts
   if (v.state === 'expired') {
@@ -81,13 +86,22 @@ async function sizeFor(card: Card): Promise<string> {
 }
 
 /** User tapped Place (open) or Close (holding). Re-check now, then start the cancel window. */
-export async function confirm(id: string): Promise<Card> {
-  const card = getCard(id)
+export async function confirm(sb: Sandbox, id: string): Promise<Card> {
+  const card = getCard(sb, id)
   const expected = card.action === 'close' ? 'holding' : 'ready'
   if (card.state !== expected) throw new ActionError(409, `card is ${card.state}`)
   if (Date.now() > card.expiresAt) {
     setState(card, 'expired')
     return card
+  }
+  // Judges share one Bybit Demo account: one judge position at a time, never on top of another position.
+  if (sb.kind === 'judge' && card.action === 'open') {
+    const busy = await judgeBusyReason(card)
+    if (busy) {
+      card.notice = busy
+      card.noticeAt = Date.now()
+      throw new ActionError(409, busy)
+    }
   }
   // Mark synchronously so a double tap can't start two countdowns.
   setState(card, 'countdown', { countdownEndsAt: Date.now() + config.cancelWindowMs })
@@ -102,12 +116,12 @@ export async function confirm(id: string): Promise<Card> {
   }
   if (!counting(card)) return card
   const remaining = Math.max(0, card.countdownEndsAt! - Date.now())
-  timers.set(id, setTimeout(() => void execute(id), remaining))
+  timers.set(id, setTimeout(() => void execute(sb, id), remaining))
   return card
 }
 
-export function cancel(id: string): Card {
-  const card = getCard(id)
+export function cancel(sb: Sandbox, id: string): Card {
+  const card = getCard(sb, id)
   if (card.state !== 'countdown') throw new ActionError(409, `card is ${card.state}`)
   clearTimeout(timers.get(id))
   timers.delete(id)
@@ -116,8 +130,8 @@ export function cancel(id: string): Card {
 }
 
 /** Skip a call, or Keep a position (holding card). */
-export function skip(id: string): Card {
-  const card = getCard(id)
+export function skip(sb: Sandbox, id: string): Card {
+  const card = getCard(sb, id)
   if (!['ready', 'holding', 'blocked', 'unsure'].includes(card.state)) throw new ActionError(409, `card is ${card.state}`)
   setState(card, 'skipped')
   return card
@@ -147,13 +161,13 @@ export async function reevaluate(card: Card): Promise<void> {
   )
   card.facts = v.facts
   if (v.state === 'expired') return setState(card, 'expired', { flags: v.flags })
-  const flags = v.state === 'ready' ? await userRuleFlags() : v.flags
+  const flags = v.state === 'ready' ? await userRuleFlags(sbOf(card)) : v.flags
   if (card.state !== 'ready' && card.state !== 'blocked') return // changed while we awaited
   setState(card, flags.length ? 'blocked' : 'ready', { flags })
 }
 
-export function dismiss(id: string): Card {
-  const card = getCard(id)
+export function dismiss(sb: Sandbox, id: string): Card {
+  const card = getCard(sb, id)
   card.dismissed = true
   return card
 }
@@ -184,7 +198,7 @@ async function orderParams(card: Card): Promise<{ params: Record<string, unknown
   if (card.action === 'close') {
     const pos = card.position!
     const side = pos.side === 'Buy' ? 'Sell' : 'Buy'
-    const orderLinkId = orderLinkIdFor('close', `${BOOT}:${card.id}`)
+    const orderLinkId = orderLinkIdFor('close', orderKey(card))
     return {
       side,
       orderLinkId,
@@ -195,7 +209,7 @@ async function orderParams(card: Card): Promise<{ params: Record<string, unknown
   const inst = await instrument(symbol)
   await ensureLeverage1x(symbol)
   const side = p.side === 'long' ? 'Buy' : 'Sell'
-  const orderLinkId = orderLinkIdFor('open', `${BOOT}:${card.id}`)
+  const orderLinkId = orderLinkIdFor('open', orderKey(card))
   return {
     side,
     orderLinkId,
@@ -209,9 +223,9 @@ async function orderParams(card: Card): Promise<{ params: Record<string, unknown
   }
 }
 
-async function execute(id: string): Promise<void> {
+async function execute(sb: Sandbox, id: string): Promise<void> {
   timers.delete(id)
-  const card = cards.get(id)
+  const card = sb.cards.get(id)
   if (!card || card.state !== 'countdown') return // cancelled
   try {
     // Second re-check: price/position may have changed during the cancel window.
@@ -242,7 +256,7 @@ async function execute(id: string): Promise<void> {
       status: o?.orderStatus ?? 'Unknown',
     }
     insertOrder({
-      card_id: `${BOOT}:${card.id}`, kind: order.kind, order_id: order.orderId, order_link_id: orderLinkId, symbol,
+      card_id: orderKey(card), sandbox_id: sb.id, kind: order.kind, order_id: order.orderId, order_link_id: orderLinkId, symbol,
       side, qty: order.qty, avg_price: order.avgPrice ?? null, status: order.status, created_at: Date.now(),
     })
     invalidateStats()
@@ -251,9 +265,10 @@ async function execute(id: string): Promise<void> {
       return
     }
     setState(card, 'filled', { order })
+    if (sb.kind === 'judge') trackJudgePosition(sb, card, order)
     const coin = symbol.replace('USDT', '')
     const px = Number(order.avgPrice).toLocaleString('en-US')
-    session.lastResult = card.action === 'close' ? `${coin} closed ${px}` : `${coin} ${card.parsed!.side} filled ${px}`
+    sb.session.lastResult = card.action === 'close' ? `${coin} closed ${px}` : `${coin} ${card.parsed!.side} filled ${px}`
     try {
       card.order!.receiptSent = await sendReceipt(card)
       audit(card.order!.receiptSent ? 'receipt_sent' : 'receipt_skipped', { id: card.id, source: card.msg.source })
@@ -262,5 +277,54 @@ async function execute(id: string): Promise<void> {
     }
   } catch (e) {
     setState(card, 'failed', { error: (e as Error).message })
+  }
+}
+
+// ── Judge positions: one at a time, closed automatically ──────────────────────────────────────
+let autoClose: NodeJS.Timeout | undefined
+
+/** Why a judge can't open a demo position right now (or null). */
+async function judgeBusyReason(card: Card): Promise<string | null> {
+  const j = judgePosition.current
+  if (j) {
+    const left = Math.max(5, Math.ceil((j.openedAt + JUDGE_AUTO_CLOSE_MS - Date.now()) / 1000))
+    return j.sandboxId === card.sandboxId
+      ? `Your demo position is still open · close it or wait ~${left} s`
+      : `Another judge's demo order is open · try again in ~${left} s`
+  }
+  const open = await listPositions(bybit).catch(() => null)
+  if (open === null) return "Couldn't read the demo account · try again"
+  if (open.length) return 'A demo position is already open · try again in a minute'
+  return null
+}
+
+function trackJudgePosition(sb: Sandbox, card: Card, order: OrderResult) {
+  if (order.kind === 'close') {
+    if (judgePosition.current?.sandboxId === sb.id) {
+      judgePosition.current = undefined
+      clearTimeout(autoClose)
+    }
+    return
+  }
+  judgePosition.current = { sandboxId: sb.id, cardId: card.id, symbol: card.parsed!.symbol!, side: order.side, qty: order.qty, openedAt: Date.now() }
+  clearTimeout(autoClose)
+  autoClose = setTimeout(() => void autoCloseJudge(), JUDGE_AUTO_CLOSE_MS)
+  autoClose.unref?.()
+}
+
+/** After 2 minutes, close the judge's demo position (reduce-only) so the shared account is clean. */
+async function autoCloseJudge() {
+  const j = judgePosition.current
+  if (!j) return
+  try {
+    const r = await closePosition(bybit, j.symbol, `auto:${BOOT}:${j.sandboxId}:${j.cardId}`)
+    audit('judge_auto_close', { sandbox: j.sandboxId, card: j.cardId, retCode: r.retCode, orderId: r.orderId, qty: r.qty })
+    const sb = sandboxById(j.sandboxId)
+    const secs = Math.round(JUDGE_AUTO_CLOSE_MS / 1000)
+    if (sb) sb.session.lastResult = `${j.symbol.replace('USDT', '')} demo position auto-closed after ${secs >= 120 ? `${Math.round(secs / 60)} min` : `${secs} s`}`
+  } catch (e) {
+    audit('judge_auto_close_failed', { sandbox: j.sandboxId, error: (e as Error).message })
+  } finally {
+    judgePosition.current = undefined
   }
 }

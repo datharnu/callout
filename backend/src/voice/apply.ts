@@ -3,7 +3,9 @@
 // Modifiers (half size, set stop) re-run every check. Safe actions (skip/keep/cancel/ok) run now.
 import { config } from '../config.js'
 import { ActionError, cancel, dismiss, reevaluate, sizeProblem, skip } from '../executor.js'
-import { audit, cards } from '../store.js'
+import { audit } from '../store.js'
+import { takeQuota, type Sandbox } from '../sandbox.js'
+import { takeBudget } from '../budget.js'
 import type { Card, VoiceNote } from '../types.js'
 import { interpretAll, type VoiceCommand, type VoiceParse } from './commands.js'
 import { SttError, transcribe } from './stt.js'
@@ -49,9 +51,11 @@ function parseWithPending(card: Card, heard: string): VoiceParse {
   return interpretAll(heard, ctx)
 }
 
-export async function handleVoice(cardId: string, pcm: Buffer): Promise<VoiceResult> {
-  const card = cards.get(cardId)
+export async function handleVoice(sb: Sandbox, cardId: string, pcm: Buffer): Promise<VoiceResult> {
+  const card = sb.cards.get(cardId)
   if (!card) throw new ActionError(404, 'card not found')
+  if (!takeQuota(sb, 'voice')) return finish(card, '', 'refused', 'Voice limit for this hour reached · tap still works')
+  if (sb.kind === 'judge' && !takeBudget('stt')) return finish(card, '', 'refused', 'Demo voice limit reached for today · tap still works')
 
   let heard: string
   try {
@@ -107,22 +111,22 @@ export async function handleVoice(cardId: string, pcm: Buffer): Promise<VoiceRes
           anySelected = true
           break
         case 'skip':
-          skip(card.id)
+          skip(sb, card.id)
           parts.push('Skipped')
           anyDone = true
           break
         case 'keep':
-          skip(card.id)
+          skip(sb, card.id)
           parts.push(`Keeping ${coin(card)}`)
           anyDone = true
           break
         case 'cancel':
-          cancel(card.id)
+          cancel(sb, card.id)
           parts.push('Cancelled · no order sent')
           anyDone = true
           break
         case 'dismiss':
-          dismiss(card.id)
+          dismiss(sb, card.id)
           parts.push('OK')
           anyDone = true
           break

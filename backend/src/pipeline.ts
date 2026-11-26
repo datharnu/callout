@@ -3,12 +3,15 @@ import { config } from './config.js'
 import { parseMessage } from './ai/parse.js'
 import { runChecks } from './checks.js'
 import { livePrice } from './market.js'
-import { audit, cards, latestVersion, messageKey, session, setState } from './store.js'
+import { audit, messageKey, setState } from './store.js'
+import { allSandboxes, judgePosition, type Sandbox } from './sandbox.js'
+import { takeBudget } from './budget.js'
+import { filledOpensSince } from './db.js'
 import type { Card, IncomingMessage, PositionInfo } from './types.js'
 import { bybit } from './bybit/demo.js'
 import { insertCall } from './db.js'
 import { listPositions } from './positions.js'
-import { currentStats, ruleFlags, ruleSettings } from './rules.js'
+import { currentStats, ruleFlags, startOfUtcDay } from './rules.js'
 import { recordFor } from './track.js'
 import { warmUp } from './voice/stt.js'
 
@@ -33,9 +36,10 @@ export function gate(
   return { pass: true }
 }
 
-export async function ingest(msg: IncomingMessage): Promise<IngestResult> {
-  // 1. Allowlist.
-  const g = gate(msg, { chats: config.allowedChatIds, senders: config.allowedSenderIds })
+export async function ingest(msg: IncomingMessage, sb: Sandbox): Promise<IngestResult> {
+  const { session, latestVersion, cards } = sb
+  // 1. Allowlist (this sandbox's chats and senders).
+  const g = gate(msg, sb.allow)
   if (!g.pass) {
     if (g.outcome === 'muted') session.muted++
     return { outcome: g.outcome, reason: g.reason }
@@ -47,10 +51,12 @@ export async function ingest(msg: IncomingMessage): Promise<IngestResult> {
   const prev = latestVersion.get(key)
   const version = prev === undefined ? 0 : prev + 1
   latestVersion.set(key, version)
-  if (prev !== undefined) supersedeOlder(key, version, 'edited')
+  if (prev !== undefined) supersedeOlder(sb, key, version, 'edited')
 
-  // 3. Parse (LLM extracts values only).
-  const { parsed, error } = await parseMessage(text)
+  // 3. Parse (LLM extracts values only). Judge traffic has a global daily ceiling on paid calls.
+  const { parsed, error } = sb.kind === 'judge' && !takeBudget('parse')
+    ? { parsed: { kind: 'unsure' as const, symbol: null, side: null, entry: null, stop: null, targets: [], leverage: null, confidence: 0, quote: '' }, error: 'demo parsing limit reached for today' }
+    : await parseMessage(text)
 
   if (parsed.kind === 'noise' && !error) {
     session.muted++
@@ -60,12 +66,13 @@ export async function ingest(msg: IncomingMessage): Promise<IngestResult> {
   const now = Date.now()
   const base = {
     id: `${key}:${version}`,
+    sandboxId: sb.id,
     version,
     msg: { ...msg, text },
     parsed,
     createdAt: now,
     expiresAt: msg.sentAt + config.callExpiryMs,
-    sizeUsd: config.sizeUsd,
+    sizeUsd: sb.sizeUsd,
     edited: version > 0,
     ...(error ? { error } : {}),
   }
@@ -76,7 +83,7 @@ export async function ingest(msg: IncomingMessage): Promise<IngestResult> {
     let pos: PositionInfo | undefined
     let posError = false
     try {
-      pos = parsed.symbol ? await positionInfo(parsed.symbol) : undefined
+      pos = parsed.symbol ? await positionInfo(sb, parsed.symbol) : undefined
     } catch {
       posError = true
     }
@@ -98,7 +105,7 @@ export async function ingest(msg: IncomingMessage): Promise<IngestResult> {
     let state: Card['state'] = verdict.state
     let flags = error ? ["Couldn't read this clearly"] : verdict.flags
     if (state === 'ready') {
-      const rf = await userRuleFlags()
+      const rf = await userRuleFlags(sb)
       if (rf.length) {
         state = 'blocked'
         flags = rf
@@ -130,16 +137,25 @@ export async function ingest(msg: IncomingMessage): Promise<IngestResult> {
   return { outcome: 'card', card }
 }
 
-/** Rule flags, failing closed: if stats can't be read, the card is blocked. */
-export async function userRuleFlags(): Promise<string[]> {
+/**
+ * Rule flags, failing closed: if stats can't be read, the card is blocked.
+ * Owner: trades from our DB + realised P&L and loss streak from Bybit Demo. Judges: only their own trades.
+ */
+export async function userRuleFlags(sb: Sandbox): Promise<string[]> {
   try {
-    return ruleFlags(await currentStats(bybit), ruleSettings)
+    if (sb.kind === 'judge') return ruleFlags({ tradesToday: filledOpensSince(startOfUtcDay(), sb.id), pnlToday: 0, lossStreak: 0 }, sb.rules)
+    return ruleFlags(await currentStats(bybit), sb.rules)
   } catch (e) {
     return [`rules: couldn't check (${(e as Error).message.slice(0, 40)})`]
   }
 }
 
-export async function positionInfo(symbol: string): Promise<PositionInfo | undefined> {
+/** The position a holding card refers to. Judges only ever see their own open demo position. */
+export async function positionInfo(sb: Sandbox, symbol: string): Promise<PositionInfo | undefined> {
+  if (sb.kind === 'judge') {
+    const j = judgePosition.current
+    if (!j || j.sandboxId !== sb.id || j.symbol !== symbol) return undefined
+  }
   const [p] = await listPositions(bybit, symbol)
   if (!p) return undefined
   const avg = Number(p.avgPrice)
@@ -171,8 +187,8 @@ function recordCall(card: Card) {
   })
 }
 
-function supersedeOlder(key: string, newVersion: number, why: string) {
-  for (const c of cards.values()) {
+function supersedeOlder(sb: Sandbox, key: string, newVersion: number, why: string) {
+  for (const c of sb.cards.values()) {
     if (`${c.msg.chatId}:${c.msg.messageId}` === key && c.version < newVersion && REPLACEABLE.includes(c.state)) {
       setState(c, 'superseded', { error: why })
     }
@@ -181,11 +197,13 @@ function supersedeOlder(key: string, newVersion: number, why: string) {
 
 /** Periodic sweep: untouched cards past expiry become "expired" (counted as "while away"). */
 export function sweepExpired(now = Date.now()): void {
-  for (const c of cards.values()) {
-    if (REPLACEABLE.includes(c.state) && now > c.expiresAt) {
-      const wasTradable = c.state === 'ready'
-      setState(c, 'expired')
-      if (wasTradable) session.expired++ // "calls while away" = tradable calls nobody acted on
+  for (const sb of allSandboxes()) {
+    for (const c of sb.cards.values()) {
+      if (REPLACEABLE.includes(c.state) && now > c.expiresAt) {
+        const wasTradable = c.state === 'ready'
+        setState(c, 'expired')
+        if (wasTradable) sb.session.expired++ // "calls while away" = tradable calls nobody acted on
+      }
     }
   }
 }

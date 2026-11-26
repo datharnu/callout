@@ -2,6 +2,9 @@
 import { Bot, type Context } from 'grammy'
 import { requireEnv } from './env.js'
 import { ingest } from './pipeline.js'
+import { linkedTo, owner, redeemPairCode } from './sandbox.js'
+import { audit } from './store.js'
+import { config } from './config.js'
 import type { Card, IncomingMessage } from './types.js'
 
 export const bot = new Bot(requireEnv('TELEGRAM_BOT_TOKEN'))
@@ -28,13 +31,35 @@ function toIncoming(ctx: Context, edited: boolean): IncomingMessage | undefined 
   }
 }
 
+/** The group judges join (title read from Telegram at startup; invite link from .env). */
+export const group: { title: string; inviteUrl?: string } = { title: '', inviteUrl: process.env.TELEGRAM_GROUP_INVITE_URL?.trim() || undefined }
+
+/** `/pair 123456` (also `/pair@CalloutBot 123456`) in an allowlisted group links the sender to a judge session. */
+async function handlePair(ctx: Context, msg: IncomingMessage): Promise<boolean> {
+  const m = msg.text.trim().match(/^\/pair(?:@\w+)?\s+(\d{6})\b/i)
+  if (!m || !config.allowedChatIds.has(msg.chatId)) return false
+  const sb = redeemPairCode(m[1]!, msg.senderId, msg.senderName)
+  audit('pair', { chatId: msg.chatId, senderId: msg.senderId, ok: !!sb, sandbox: sb?.id })
+  await ctx.reply(
+    sb
+      ? `Linked ${msg.senderName || 'you'} to a Callout judge session. Post a call here (for example "LONG BTC entry 60.5k SL 59.3k TP 62.9k") and it appears on your glasses. Demo money only.`
+      : 'That code did not match or has expired. Get a new one on the Callout "Try it" page.',
+    { reply_parameters: { message_id: msg.messageId, allow_sending_without_reply: true } },
+  ).catch(() => {})
+  return true
+}
+
 function handle(edited: boolean) {
   return async (ctx: Context) => {
     const msg = toIncoming(ctx, edited)
     if (!msg) return
-    const r = await ingest(msg)
-    if (r.outcome === 'card') {
-      console.log(`[card] ${r.card.id} ${r.card.state}${r.card.flags.length ? ` (${r.card.flags.join(', ')})` : ''}`)
+    if (!edited && (await handlePair(ctx, msg))) return
+    // The owner's sandbox sees every message (its allowlist decides), plus any judge session linked to the sender.
+    for (const sb of [owner, ...linkedTo(msg.senderId)]) {
+      const r = await ingest(msg, sb)
+      if (r.outcome === 'card') {
+        console.log(`[card] ${sb.id} ${r.card.id} ${r.card.state}${r.card.flags.length ? ` (${r.card.flags.join(', ')})` : ''}`)
+      }
     }
   }
 }
@@ -63,6 +88,8 @@ export async function sendReceipt(card: Card): Promise<boolean> {
 
 export async function startTelegram(): Promise<void> {
   const me = await bot.api.getMe()
+  const chatId = [...config.allowedChatIds][0]
+  if (chatId) group.title = await bot.api.getChat(Number(chatId)).then(c => ('title' in c ? c.title ?? '' : '')).catch(() => '')
   console.log(`[telegram] @${me.username} · privacy ${me.can_read_all_group_messages ? 'off' : 'ON (bot only sees commands!)'}`)
   void bot.start({
     drop_pending_updates: true,
