@@ -21,12 +21,12 @@ Callout reads the Telegram trade-call groups you choose. It checks each call aga
 
 ### Proof: one real order, three places
 
-A live call posted in Telegram, confirmed on the glasses, filled on Bybit Demo, receipt back in the group. Order ID `61bc839c-d5a6-4b7f-87cd-b0e372330dae`: the receipt shows its start, and Bybit's Order ID column shows its last 8 characters (`72330dae`). The glasses and receipt now use Bybit's last-8 form, so all three match character for character.
+A live call posted in Telegram, adjusted by voice, confirmed with a tap on the glasses, filled on Bybit Demo, and receipted back in the group. Bybit's Order History shows the last 8 characters of the order ID, and the glasses and receipt show the same 8: **`5b8cf401`** (full ID `cef94558-bf1d-42d7-a02a-67955b8cf401`).
 
 | Glasses: filled | Bybit Demo: Order History | Telegram: receipt |
 |---|---|---|
-| ![glasses fill](screenshots/22-telegram-result.png) | ![bybit order](screenshots/proof-bybit-order.png) | ![telegram receipt](screenshots/proof-telegram-receipt.png) |
-| `FILLED 0.003 BTC @ 60,740.8` | `Open Long · 60,740.80 · 0.003 BTC · 17:03:55 · 72330dae` | `Buy 0.003 @ 60,740.8 · Order 61bc839c...0dae` |
+| ![glasses fill](screenshots/proof-glasses-order.png) | ![bybit order](screenshots/proof-bybit-order.png) | ![telegram receipt](screenshots/proof-telegram-receipt.png) |
+| `FILLED 0.001 BTC @ 60,584.1 · Order ...5b8cf401` | `Open Long · 60,584.10 · 0.001 BTC · 20:27:28 · 5b8cf401` | `Buy 0.001 @ 60,584.1 · Order ...5b8cf401` |
 
 ## The problem
 
