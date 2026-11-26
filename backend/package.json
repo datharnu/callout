@@ -15,7 +15,8 @@
     "eval": "tsx eval/run.ts",
     "seed:track": "tsx scripts/seed-track-record.ts",
     "e2e:voice": "tsx scripts/e2e-voice.ts",
-    "eval:voice": "tsx eval/voice.ts"
+    "eval:voice": "tsx eval/voice.ts",
+    "demo": "tsx scripts/demo-run.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.14.0",

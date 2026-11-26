@@ -7,6 +7,8 @@ import { ingest } from './pipeline.js'
 import { ActionError, cancel, confirm, dismiss, skip } from './executor.js'
 import { cards, isActive, session } from './store.js'
 import { handleVoice } from './voice/apply.js'
+import { filledOpensSince } from './db.js'
+import { ruleSettings, startOfUtcDay } from './rules.js'
 import { hintFor } from './voice/commands.js'
 import { MAX_AUDIO_MS, pcmDurationMs } from './voice/stt.js'
 import type { Card } from './types.js'
@@ -92,6 +94,17 @@ export async function startServer() {
     }
   })
   app.get('/api/state', async () => stateView())
+
+  // Read-only view of the user's settings and today's rule counters (no secrets).
+  app.get('/api/settings', async () => ({
+    sizeUsd: config.sizeUsd,
+    maxSizeUsd: config.maxSizeUsd,
+    rules: ruleSettings,
+    tradesToday: filledOpensSince(startOfUtcDay()),
+    cancelWindowMs: config.cancelWindowMs,
+    callExpiryMin: config.callExpiryMs / 60_000,
+    demoMode: config.demoMode,
+  }))
 
   app.post<{ Params: { id: string; action: string } }>('/api/cards/:id/:action', async (req, reply) => {
     const { id, action } = req.params

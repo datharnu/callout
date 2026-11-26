@@ -201,6 +201,8 @@ const FILLER = new Set(['and', 'then', 'please', 'actually', 'also', 'um', 'uh',
 const MIN_COMMAND_DENSITY = 0.5
 const SHORT_UTTERANCE_WORDS = 6
 const WEAK_MAX_WORDS = 3
+/** Words that cancel the countdown even inside a longer sentence. */
+const STRONG_CANCEL = ['cancel', 'stop', 'wait', 'abort', 'dont', 'do not', 'hold on', 'hang on']
 const MODIFIERS = new Set<VoiceCommand['type']>(['size', 'set_stop'])
 const NAVIGATION = new Set<VoiceCommand['type']>(['next', 'prev'])
 
@@ -228,9 +230,18 @@ export function interpretAll(transcript: string, ctx: VoiceContext): VoiceParse 
 
   // Countdown is fail-safe: anything that isn't a clear "go ahead" cancels. A wrong cancel costs
   // nothing; a missed cancel places an order. ("wait" was once heard as "way", "abort" as "I bought".)
+  //
+  // Live test: a TV in the room ("I mean emotional support and if you're emotionally…") cancelled an
+  // order, so longer speech must contain an explicit cancel word; short unclear speech still cancels.
   if (ctx.state === 'countdown') {
+    const meaningful = t.split(' ').filter(w => !FILLER.has(w)).length
+    if (meaningful > SHORT_UTTERANCE_WORDS) {
+      if (has(t, ...STRONG_CANCEL)) out.commands.push({ type: 'cancel' })
+      else out.ignored = true
+      return out
+    }
     // Negation wins: "no, don't go" / "don't do it" must cancel even though they contain "go" / "do it".
-    if (has(t, 'no', 'dont', 'do not', 'not', 'stop', 'cancel', 'wait', 'abort', 'hold', 'hang on')) out.commands.push({ type: 'cancel' })
+    if (has(t, ...STRONG_CANCEL, 'no', 'not', 'hold')) out.commands.push({ type: 'cancel' })
     else if (has(t, 'yes', 'go', 'go ahead', 'confirm', 'do it', 'ok', 'okay', 'continue', 'fine', 'place it', 'send it')) out.proceed = true
     else out.commands.push({ type: 'cancel' })
     return out

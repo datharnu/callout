@@ -192,3 +192,14 @@ test('live transcript: "set stops …" (plural) still sets the stop', () => {
   // Heard in a live test: "half" misheard as "Outsize" (correctly ignored), "stop" as "stops".
   assert.deepEqual(all('Outsize set stops fifty-nine point five K', ready).commands, [{ type: 'set_stop', price: 59500 }])
 })
+
+test('countdown: background conversation is ignored, explicit cancel words still cancel (live test)', () => {
+  const tv = "I mean emotional support and if you're emotionally"
+  const p = all(tv, countdown)
+  assert.equal(p.ignored, true)
+  assert.deepEqual(p.commands, [])
+  assert.deepEqual(all('uh wait wait I changed my mind about this one', countdown).commands, [{ type: 'cancel' }])
+  assert.deepEqual(all("hold on I don't think that's right at all", countdown).commands, [{ type: 'cancel' }])
+  // short unclear speech is still fail-safe
+  assert.deepEqual(all('Way', countdown).commands, [{ type: 'cancel' }])
+})
