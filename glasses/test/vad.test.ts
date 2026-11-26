@@ -50,7 +50,7 @@ test('two phrases separated by a pause → two utterances', () => {
 test('short click is ignored', () => {
   const got: Uint8Array[] = []
   const v = new Vad(u => got.push(u))
-  feed(v, pcm([[800, 0], [100, 8000], [1200, 0]]))
+  feed(v, pcm([[800, 0], [40, 8000], [1200, 0]])) // a real click/tap is 10–40 ms
   assert.equal(got.length, 0)
 })
 
@@ -94,4 +94,19 @@ test('reset drops a partial utterance', () => {
   v.reset()
   feed(v, pcm([[1000, 0]]))
   assert.equal(got.length, 0)
+})
+
+test('live mic levels: quiet room (~55 RMS) with a short command at 600–900 RMS is detected', () => {
+  const got: Uint8Array[] = []
+  const v = new Vad(u => got.push(u))
+  // amplitude A sine ≈ RMS A/√2: 75 → ~53 room noise; 1100 → ~780 speech for 300 ms, a 250 ms tail at ~180
+  feed(v, pcm([[1500, 75], [300, 1100], [250, 250], [1200, 75]]))
+  assert.equal(got.length, 1)
+})
+
+test('live mic levels: a very short command ("Close it", ~180 ms loud) over ~90 RMS noise is detected', () => {
+  const got: Uint8Array[] = []
+  const v = new Vad(u => got.push(u))
+  feed(v, pcm([[1500, 130], [100, 1400], [100, 650], [100, 250], [1200, 130]]))
+  assert.equal(got.length, 1)
 })

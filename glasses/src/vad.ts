@@ -22,12 +22,12 @@ export const DEFAULT_VAD: VadOptions = {
   preRollMs: 500, // live test: soft starts ("h" in "half") were clipped at 300 ms
   startMs: 60,
   endSilenceMs: 800, // live test: people pause before numbers; 600 ms split "set stop | 59K"
-  minSpeechMs: 250,
+  minSpeechMs: 120, // live test: "Close it" through laptop speakers was only ~180 ms above the noise; clicks are 10–40 ms
   maxUtteranceMs: 6000,
-  startFactor: 3,
-  continueFactor: 2,
-  minStartRms: 500,
-  minContinueRms: 350,
+  startFactor: 4,
+  continueFactor: 2.5,
+  minStartRms: 250, // live test: room noise ~55 RMS, speech 600–900: fixed floors of 500/350 were too high
+  minContinueRms: 150,
 }
 
 export type SpeakerRole = 'self' | 'other' | 'unknown'
