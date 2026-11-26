@@ -163,8 +163,8 @@ export function countdownScreen(c: CardView, now: number): string {
 export function resultScreen(c: CardView): string {
   if (c.state === 'filled' && c.order) {
     const o = c.order
-    // Same form as the Telegram receipt, so the ID is easy to match against Bybit's order history.
-    const id = o.orderId.length > 14 ? `${o.orderId.slice(0, 8)}...${o.orderId.slice(-4)}` : o.orderId
+    // Bybit's Order History shows the LAST 8 characters of the order ID; show exactly that.
+    const id = o.orderId.length > 8 ? `...${o.orderId.slice(-8)}` : o.orderId
     return [
       `${o.kind === 'close' ? 'CLOSED' : 'FILLED'} ${o.qty} ${coin(c.symbol)} @ ${Number(o.avgPrice).toLocaleString('en-US')}${o.kind === 'close' ? ' (reduce-only)' : ''}`,
       `Order ${id} · Bybit Demo`,

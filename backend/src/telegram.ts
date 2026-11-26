@@ -47,7 +47,8 @@ bot.catch(err => console.error('[telegram] handler error:', err.error))
 export async function sendReceipt(card: Card): Promise<boolean> {
   if (card.msg.source !== 'telegram') return false // replayed demo messages have no real thread to reply to
   const o = card.order!
-  const short = o.orderId.length > 12 ? `${o.orderId.slice(0, 8)}...${o.orderId.slice(-4)}` : o.orderId
+  // Last 8 characters: the form Bybit's Order History shows, so the receipt matches the exchange.
+  const short = o.orderId.length > 8 ? `...${o.orderId.slice(-8)}` : o.orderId
   const text = [
     'Callout receipt · Bybit Demo (not real money)',
     `${o.kind === 'close' ? 'Closed (reduce-only) ' : ''}${card.parsed!.symbol} ${o.side} ${o.qty} @ ${Number(o.avgPrice).toLocaleString('en-US')}`,
