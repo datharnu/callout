@@ -13,6 +13,8 @@ export interface CheckInput {
   parsed: ParsedCall
   rawText: string
   livePrice: number | undefined
+  /** Stop the USER set by voice. Replaces the caller's stop; exempt from the "written in the message" check. */
+  stopOverride?: number
   sentAt: number
   now: number
 }
@@ -68,7 +70,9 @@ export function scamFlags(text: string): string[] {
 const fmtPct = (p: number) => `${Math.abs(p).toFixed(1)}%`
 
 export function runChecks(input: CheckInput, s: CheckSettings): CheckVerdict {
-  const { parsed: p, rawText, livePrice, sentAt, now } = input
+  const { parsed, rawText, livePrice, sentAt, now, stopOverride } = input
+  // The user's own stop (if any) replaces the caller's for every check except traceability.
+  const p = stopOverride !== undefined ? { ...parsed, stop: stopOverride } : parsed
   const facts: CheckFacts = { livePrice }
 
   if (now - sentAt > s.callExpiryMs) {
@@ -91,7 +95,7 @@ export function runChecks(input: CheckInput, s: CheckSettings): CheckVerdict {
 
   // Anti-hallucination / anti-injection: every price must be written in the message.
   const written = numbersInText(rawText)
-  const prices = [p.entry, p.stop, ...p.targets].filter((v): v is number => v !== null && v > 0)
+  const prices = [p.entry, stopOverride === undefined ? p.stop : null, ...p.targets].filter((v): v is number => v !== null && v > 0)
   if (prices.some(v => !traceable(v, written))) flags.push('values not found in message')
 
   if (p.entry !== null && p.entry > 0) {

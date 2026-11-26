@@ -83,3 +83,23 @@ test('price already past stop', () => {
   const v = run(call(), 'LONG BTC 60.4k SL 59k TP 63k', 58900)
   assert.ok(v.flags.includes('price already past stop'))
 })
+
+test('user stop override: replaces caller stop, exempt from traceability, still side-checked', () => {
+  const base = { parsed: call(), rawText: 'LONG BTC entry 60.4k SL 59k TP 63k', livePrice: 60500, sentAt: NOW - 60_000, now: NOW }
+  const ok = runChecks({ ...base, stopOverride: 59200 }, S)
+  assert.equal(ok.state, 'ready')
+  assert.equal(ok.facts.rr, Math.round((2600 / 1200) * 10) / 10) // R:R uses the user's stop
+  const wrong = runChecks({ ...base, stopOverride: 61000 }, S)
+  assert.ok(wrong.flags.includes('stop above entry'))
+  const tight = runChecks({ ...base, stopOverride: 60350 }, S) // just under entry, live above it
+  assert.equal(tight.state, 'ready')
+  const behind = runChecks({ ...base, livePrice: 60300, stopOverride: 60350 }, S)
+  assert.ok(behind.flags.includes('price already past stop'))
+})
+
+test('user stop fixes a call that had no stop', () => {
+  const parsed = call({ stop: null })
+  const raw = 'BTC long 60.4k, no stop, tp 63k'
+  assert.ok(runChecks({ parsed, rawText: raw, livePrice: 60500, sentAt: NOW - 60_000, now: NOW }, S).flags.includes('no stop-loss'))
+  assert.equal(runChecks({ parsed, rawText: raw, livePrice: 60500, sentAt: NOW - 60_000, now: NOW, stopOverride: 59000 }, S).state, 'ready')
+})

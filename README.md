@@ -2,19 +2,21 @@
 
 **Checks the call before you take it.**
 
-Callout reads the Telegram trade-call groups you choose. It checks each call against the live market, the caller's track record and your own trading rules. Then it puts one card on your Even Realities G2 glasses: tap once and the order goes to **Bybit Demo Trading**, with a cancel window, a real order ID on the glasses and a receipt posted back to Telegram.
+Callout reads the Telegram trade-call groups you choose. It checks each call against the live market, the caller's track record and your own trading rules. Then it puts one card on your Even Realities G2 glasses. Tap once, or say "half size", "set stop 59.2k" or "skip", and the order goes to **Bybit Demo Trading**, with a cancel window, a real order ID on the glasses and a receipt posted back to Telegram.
 
 > Callout executes the user's own confirmed decision, never the group's advice. **Not financial advice.** Demo money only: orders go to Bybit Demo Trading, and no user funds are held.
 
 - **Tracks:** 03 Exchanges & Stocks (main), 01 Messaging & News. Also entered for Best Telegram integration.
 - **Who it's for:** active crypto traders who follow Telegram call groups and trade on Bybit.
-- **Status:** works end to end in the Even Hub simulator. A real Telegram call was placed on Bybit Demo from the glasses UI, with the receipt replied in the group (screenshots below).
+- **Status:** works end to end in the Even Hub simulator. A real Telegram call was placed on Bybit Demo from the glasses UI, with the receipt replied in the group. Voice commands work end to end through real speech-to-text (screenshots below).
 
 | Call card | Scam call blocked | Cancel window |
 |---|---|---|
 | ![card](screenshots/30-card-with-record.png) | ![blocked](screenshots/12-scam-blocked.png) | ![countdown](screenshots/14-countdown.png) |
 | **Filled from a live Telegram call** | **Holding update** | **Reduce-only close** |
 | ![filled](screenshots/22-telegram-result.png) | ![holding](screenshots/32-holding.png) | ![closed](screenshots/34-closed.png) |
+| **Voice: "set stop 59.7k"** | **Voice: "close it" (tap confirms)** | **Countdown: say "cancel"** |
+| ![voice stop](screenshots/42-voice-set-stop.png) | ![voice close](screenshots/45-voice-holding-close.png) | ![voice countdown](screenshots/43-voice-countdown.png) |
 
 ## The problem
 
@@ -42,17 +44,51 @@ Telegram group ──► Callout backend ─────────────
 
 ### Cards on the glasses (576×288 monochrome, one text container)
 
-| Card | What you see | Tap | Double-tap |
-|---|---|---|---|
-| Home / session | `CALLOUT · session on · 1 group` · `37 muted · 1 for you` · calls that expired while away · last result | none | exit |
-| Call (ready) | sender (allowlisted), side/symbol/entry, SL/TP, R:R, live price and distance from call, caller record, expiry | **Place $200 demo** | skip |
-| Blocked | parsed values, raw text, factual flags such as `contains link · says "guaranteed"` or `price 4.1% from call` | skip (only option) | skip |
-| Unsure | raw text + `Couldn't read this clearly` (no trade button) | skip | skip |
-| Holding | `"Taking profit on BTC"` · `Your BTC long 0.003 · +1.2%` | **Close (reduce-only)** | keep |
-| Countdown | progress bar + seconds left | cancel | cancel |
-| Result | `FILLED 0.003 BTC @ 60,740.8` · order ID · receipt status | continue | continue |
+| Card | What you see | Tap | Double-tap | Voice |
+|---|---|---|---|---|
+| Home / session | `CALLOUT · session on · 1 group` · `37 muted · 1 for you` · calls that expired while away · last result | none | exit | mic off |
+| Call (ready) | sender (allowlisted), side/symbol/entry, SL/TP, R:R, live price and distance from call, caller record, expiry | **Place $200 demo** | skip | "half size", "full size", "set stop 59.2k", "place it"\*, "skip", "next" |
+| Blocked | parsed values, raw text, factual flags such as `contains link · says "guaranteed"` or `price 4.1% from call` | skip (only option) | skip | "skip", "set stop 59k" (checks re-run) |
+| Unsure | raw text + `Couldn't read this clearly` (no trade button) | skip | skip | "skip" |
+| Holding | `"Taking profit on BTC"` · `Your BTC long 0.003 · +1.2%` | **Close (reduce-only)** | keep | "close it"\*, "keep it" |
+| Countdown | progress bar + seconds left | cancel | cancel | "cancel" / "stop" / "wait" (anything but a clear "go ahead" cancels) |
+| Result | `FILLED 0.003 BTC @ 60,740.8` · order ID · receipt status | continue | continue | "okay" |
+
+\* Voice only selects Place and Close; a tap confirms. The bottom line of every card shows what the mic is doing (`mic · say: half size · set stop 59k · skip`) or what the last command did (`mic · Stop set to 59.7k (yours) · tap to place`).
 
 Swipe moves between cards. Taps are ignored for 1 second after the screen changes, so a card that appears just as you tap can't be placed by accident. Labels are neutral: no ✓, and no "good" or "bad".
+
+## Voice
+
+Voice is built for the moment you have a call card in front of you and your hands are busy. It follows one rule: **voice picks, a tap confirms**.
+
+| What you say | What happens |
+|---|---|
+| "half size" / "full size" | Order size becomes settings × ½ (or back to full), still under the cap. Refused if below the exchange minimum. |
+| "set stop 59.2k" / "move stop to 59,200" / "stop loss fifty-nine thousand" | Your stop replaces the caller's and **every check re-runs**: a stop on the wrong side or already behind the price blocks the card; a valid stop can unblock a call that had none. The card shows `SL 59.2k (you)` and the new R:R. Spoken shorthand follows the entry's scale ("59.2" on a 60k entry → 59,200). |
+| "place it" / "close it" | Selects the action and shows `tap to confirm`. **Voice never places or closes anything.** |
+| "skip" / "keep it" / "okay" / "next" / "back" | Safe actions run immediately. |
+| "cancel" / "stop" / "wait" during the countdown | Cancels immediately. During the countdown **anything that isn't a clear "go ahead" cancels**, and negation always wins ("no, don't go" cancels). A wrong cancel costs nothing; a missed cancel places an order. |
+
+**How it works**
+
+- **Mic only while a card is on screen.** It's off on the home screen and while an order is being sent. It's opened with `audioControl` after the page is created, as the SDK requires.
+- **On-device speech detection** (`glasses/src/vad.ts`) adapts to room noise and cuts single utterances (300 ms pre-roll, ends after 600 ms of silence, 6 s cap). Only finished utterances leave the glasses: nothing streams continuously. Frames the G2 marks as another speaker (`speakerRole: other`) are ignored.
+- Each utterance goes to the card that was on screen when you started speaking. A card change discards half-heard speech.
+- **Speech-to-text:** the backend sends the raw 16 kHz PCM to ElevenLabs Scribe (`scribe_v2`, its native `pcm_s16le_16` format, so nothing is re-encoded). The key stays on the backend. A warm, kept-alive connection gives **~0.5 s** transcription.
+- **Recognition is biased toward safe words only** (skip, cancel, keep, okay…). An early version also biased toward "half size", and the eval caught a mumbled "pass" being heard as "half size". Now an unclear word can only drift toward something harmless.
+- **Commands are matched in code** (`backend/src/voice/commands.ts`), not by an LLM, and depend on the card: "stop" means *cancel* during the countdown and *set my stop* on a call card. Spelled-out numbers are converted ("fifty-nine thousand two hundred" → 59,200).
+- **Privacy:** audio is never stored. The audit log keeps the transcript and what it did.
+
+**Voice accuracy** (`npm run eval:voice`): 28 phrases (commands plus things that must *not* trigger anything) × 6 synthetic voices with US, UK, Australian, Irish, Indian and South African accents = 168 utterances through the real speech-to-text and interpreter.
+
+**Risky misfires: 0** (a Place, Close, size or stop command that wasn't asked for, or a wrong stop price).
+
+- Correct command: 159/168 (94.6%). Every miss produced *no* command, and the card shows what to say.
+- Non-commands correctly ignored: 24/24.
+- Speech-to-text latency: median 472 ms, p90 658 ms.
+
+Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). **Caveat:** synthetic speech (macOS voices), not a real G2 mic on a noisy street.
 
 ## Safety
 
@@ -67,8 +103,9 @@ Swipe moves between cards. Taps are ignored for 1 second after the screen change
 | Unprotected positions | The caller's SL and first TP are attached to the order. Leverage is set to 1x. |
 | Breaking your own rules | Max trades per day, max daily loss and pause-after-N-losses are checked at card time and at confirm. If the stats can't be read, the card is blocked. |
 | Edits | An edited message replaces any pending card for it and is re-parsed. It never touches an order that is already counting down or placed. |
-| Secrets | Exchange, Telegram and Anthropic keys live only in the backend `.env` (gitignored). A pre-commit hook in `.githooks/` blocks any commit containing a value from `.env`; enable it with `git config core.hooksPath .githooks`. The glasses app holds no secrets. |
-| Privacy | Reads only allowlisted groups. Stores calls and orders, not chatter. Every card, state change and order goes to an audit log (`backend/logs/audit.jsonl`). |
+| Voice | Voice can only *select* Place/Close (a tap confirms). Size and stop changes re-run every check. During the countdown, any unclear speech cancels. Commands are matched in code, not by an LLM. |
+| Secrets | Exchange, Telegram, Anthropic and ElevenLabs keys live only in the backend `.env` (gitignored). A pre-commit hook in `.githooks/` blocks any commit containing a value from `.env`; enable it with `git config core.hooksPath .githooks`. The glasses app holds no secrets. |
+| Privacy | Reads only allowlisted groups. Stores calls and orders, not chatter. Mic audio is never stored. Every card, state change, order and voice command (as text) goes to an audit log (`backend/logs/audit.jsonl`). |
 
 ## Accuracy
 
@@ -98,12 +135,12 @@ For each call Callout sees, it walks **Bybit mainnet 1-minute candles** from the
 
 ## Setup
 
-**Prerequisites:** Node 20.17+ (or 22.13+), a Bybit account with Demo Trading enabled, a Telegram bot, and an Anthropic API key.
+**Prerequisites:** Node 20.17+ (or 22.13+), a Bybit account with Demo Trading enabled, a Telegram bot, an Anthropic API key, and an ElevenLabs API key (voice).
 
 1. **Keys.** `cp .env.example .env`, run `git config core.hooksPath .githooks` (blocks committing secrets), and fill in:
    - `BYBIT_DEMO_API_KEY` / `BYBIT_DEMO_API_SECRET`: on bybit.com, switch to **Demo Trading**, then avatar → API. Live-account keys won't work.
    - `TELEGRAM_BOT_TOKEN`: from @BotFather. Run `/setprivacy` → **Disable**, add the bot to your group, then **remove it and add it back** (Telegram applies the privacy change only after a re-add).
-   - `ANTHROPIC_API_KEY`.
+   - `ANTHROPIC_API_KEY` (parser) and `ELEVENLABS_API_KEY` (speech-to-text).
 2. **Install and verify.**
    ```bash
    cd backend && npm install
@@ -122,16 +159,19 @@ For each call Callout sees, it walks **Bybit mainnet 1-minute candles** from the
    npm run dev        # Vite on :5173
    npm run simulate   # Even Hub simulator (automation API on :9898)
    ```
-   Post a call in your group (for example `LONG BTC entry 60.7k SL 59.5k TP 63.2k`, using a price near the current one). The card appears on the glasses; tap to place it on Bybit Demo.
+   Post a call in your group (for example `LONG BTC entry 60.7k SL 59.5k TP 63.2k`, using a price near the current one). The card appears on the glasses; tap to place it on Bybit Demo, or speak to it (the simulator uses your computer's microphone).
 
 **Checks:**
 
 ```bash
 cd backend
-npm test             # 25 unit tests (checks, track record, rules)
+npm test             # 42 unit tests (checks, track record, rules, voice commands)
 npm run e2e:safety   # 12 live safety scenarios against the running backend (places no orders)
+npm run e2e:voice    # 14 spoken-command scenarios, real speech-to-text (macOS; places no orders)
 npm run eval         # labeled-set accuracy (about 260 Haiku calls, a few cents)
+npm run eval:voice   # voice accuracy, 168 utterances in 6 accents (macOS)
 npm run positions    # list demo positions;  -- --close  closes them reduce-only
+cd ../glasses && npm test   # 7 speech-detection (VAD) tests
 ```
 
 ### Settings
@@ -154,10 +194,11 @@ backend/
     telegram.ts     grammY bot: messages/edits in, receipts out
     server.ts       HTTP API for the glasses (127.0.0.1 only)
     db.ts           SQLite: calls + orders
+    voice/          stt.ts (ElevenLabs Scribe), commands.ts (transcript → command), apply.ts
   eval/             labeled set + accuracy runner + RESULTS.md
   scripts/          Bybit smoke test, Telegram listener, e2e safety, seed, positions
   test/             unit tests
-glasses/            Even Hub app (Vite + TypeScript): screens.ts renders, main.ts handles input
+glasses/            Even Hub app (Vite + TypeScript): screens.ts renders, main.ts handles input + mic, vad.ts cuts utterances
 screenshots/        simulator captures
 ```
 
@@ -166,7 +207,7 @@ screenshots/        simulator captures
 Nothing in this repository was written before the build week. The git history starts on Nov 26, 2026. Third-party starting points:
 
 - `glasses/` began from the official **Even Hub minimal template** (`npx degit even-realities/evenhub-templates/minimal`). We upgraded its dependencies and replaced `src/` with Callout's screens and input handling. Its MIT notice is in [`glasses/THIRD_PARTY_NOTICES.md`](glasses/THIRD_PARTY_NOTICES.md).
-- Libraries: `@evenrealities/even_hub_sdk`, simulator and CLI; `@anthropic-ai/sdk`; `grammy`; `fastify`; `zod`; `better-sqlite3`.
+- Libraries: `@evenrealities/even_hub_sdk`, simulator and CLI; `@anthropic-ai/sdk`; `grammy`; `fastify`; `zod`; `better-sqlite3`; `undici`. Speech-to-text is the ElevenLabs API.
 
 ## Limitations
 
@@ -181,6 +222,8 @@ Nothing in this repository was written before the build week. The git history st
 - **One target attached.** Only the first TP is attached to the order and used for the track record. Holding cards close the whole position (no partial "secure 50%").
 - **Rules use the UTC day.** Daily loss comes from Bybit Demo closed P&L.
 - **Small, self-authored eval set** (see the accuracy caveat above).
+- **Voice tested with synthetic speech.** The command pipeline was tested with 6 synthetic voices through real speech-to-text, and the mic path in the simulator, but not with the physical G2 microphone. English only. Needs a network connection.
+- **Speech goes to a third party.** Short utterances (only while a card is shown) are sent to ElevenLabs for transcription. Callout itself stores no audio.
 
 ## Feature requests
 

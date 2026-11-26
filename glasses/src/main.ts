@@ -4,9 +4,11 @@ import {
   CreateStartUpPageContainer,
   TextContainerUpgrade,
   OsEventTypeList,
+  AudioInputSource,
 } from '@evenrealities/even_hub_sdk'
-import { fetchState, sendAction, type Action, type CardView, type StateView } from './api'
-import { cardScreen, homeScreen } from './screens'
+import { fetchState, sendAction, sendVoice, type Action, type CardView, type StateView } from './api'
+import { cardScreen, homeScreen, type VoiceUi } from './screens'
+import { Vad, type SpeakerRole } from './vad'
 
 const POLL_MS = 1000
 const TAP_GUARD_MS = 1000 // ignore taps right after the screen changes (no accidental orders on a new card)
@@ -36,6 +38,61 @@ let shownAt = 0
 let lastContent = ''
 let busy = false
 
+// ── Voice ─────────────────────────────────────────────────────────────────────────────────────
+// The mic is on only while a card is on screen (never on home). On-device VAD cuts utterances;
+// each one goes to the card that was on screen when it was spoken. Voice picks, a tap confirms.
+const VOICE_STATES = ['ready', 'holding', 'blocked', 'unsure', 'countdown', 'filled', 'failed', 'cancelled']
+let micOn = false
+let micWanted = false
+let micUnavailable = false
+let voiceSending = false
+let voiceCardId: string | null = null // card on screen when the current utterance started
+const vad = new Vad(pcm => void onUtterance(pcm))
+
+async function setMic(on: boolean) {
+  if (on === micWanted) return
+  micWanted = on
+  if (!on) vad.reset()
+  try {
+    const ok = await bridge.audioControl(on, AudioInputSource.Glasses)
+    micOn = on && ok
+    micUnavailable = on && !ok
+    console.log(`[callout] mic ${on ? 'on' : 'off'} → ${ok}`)
+  } catch (e) {
+    micOn = false
+    micUnavailable = on
+    console.warn('[callout] mic control failed', e)
+  }
+  render()
+}
+
+async function onUtterance(pcm: Uint8Array) {
+  const id = voiceCardId
+  voiceCardId = null
+  console.log(`[callout] utterance ${Math.round(pcm.length / 32)} ms → ${id ?? 'no card'}${voiceSending ? ' (dropped: busy)' : ''}`)
+  if (!id || voiceSending) return // one at a time; never queue speech against a different card
+  voiceSending = true
+  render()
+  try {
+    const r = await sendVoice(id, pcm)
+    console.log(`[callout] voice "${r.heard}" → ${r.note.result}: ${r.note.message}`)
+    if (r.navigate) onSwipe(r.navigate === 'next' ? 1 : -1)
+  } catch (e) {
+    console.warn('[callout] voice failed', e)
+  } finally {
+    voiceSending = false
+  }
+  await poll()
+}
+
+function voiceUi(): VoiceUi {
+  if (micUnavailable) return { status: 'unavailable' }
+  if (!micOn) return { status: 'off' }
+  if (voiceSending) return { status: 'sending' }
+  if (vad.speaking) return { status: 'hearing' }
+  return { status: 'listening' }
+}
+
 function visibleCards(): CardView[] {
   return state?.cards ?? []
 }
@@ -64,13 +121,15 @@ function render() {
     selectedId = c.id
     const cs = visibleCards()
     const pos = cs.length > 1 ? `${cs.indexOf(c) + 1}/${cs.length}` : ''
-    content = cardScreen(c, now, pos)
+    content = cardScreen(c, now, pos, voiceUi())
     key = `${c.id}:${c.state}`
   }
   if (key !== shownKey) {
+    if (key.split(':').slice(0, -1).join(':') !== shownKey.split(':').slice(0, -1).join(':')) vad.reset() // new card: drop half-heard speech
     shownKey = key
     shownAt = Date.now()
   }
+  void setMic(!!c && VOICE_STATES.includes(c.state))
   if (content !== lastContent) {
     lastContent = content
     void bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 1, containerName: 'main', content }))
@@ -150,6 +209,18 @@ const unsubscribe = bridge.onEvenHubEvent(event => {
   const text = eventTypeOf(event.textEvent)
   const is = (t: OsEventTypeList) => sys === t || text === t
 
+  const audio = event.audioEvent
+  if (audio) {
+    if (!micOn) return
+    const wasSpeaking = vad.speaking
+    vad.push(audio.audioPcm, (audio.speakerRole as string as SpeakerRole) ?? 'unknown')
+    if (!wasSpeaking && vad.speaking) {
+      voiceCardId = selected()?.id ?? null
+      render()
+    }
+    return
+  }
+
   if (is(OsEventTypeList.DOUBLE_CLICK_EVENT)) return onDoubleTap()
   if (is(OsEventTypeList.CLICK_EVENT)) return onTap()
   if (is(OsEventTypeList.SCROLL_BOTTOM_EVENT)) return onSwipe(1)
@@ -157,6 +228,7 @@ const unsubscribe = bridge.onEvenHubEvent(event => {
   if (sys === OsEventTypeList.SYSTEM_EXIT_EVENT || sys === OsEventTypeList.ABNORMAL_EXIT_EVENT) {
     clearInterval(pollTimer)
     clearInterval(tickTimer)
+    void bridge.audioControl(false)
     unsubscribe()
   }
 })

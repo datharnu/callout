@@ -4,6 +4,26 @@
 import type { CardView, StateView } from './api'
 
 const BAR_WIDTH = 20
+const VOICE_NOTE_MS = 8000 // how long the result of a voice command stays on the card
+
+export interface VoiceUi {
+  status: 'off' | 'unavailable' | 'listening' | 'hearing' | 'sending'
+}
+
+/** Bottom line of every card: what the mic is doing, or what the last command did. */
+export function voiceLine(c: CardView, v: VoiceUi | undefined, now: number): string {
+  if (!v || v.status === 'off') return ''
+  if (v.status === 'unavailable') return 'voice unavailable · tap works'
+  if (v.status === 'hearing') return 'mic · hearing you...'
+  if (v.status === 'sending') return 'mic · working...'
+  // A note is shown only on the card state it was made in (never a stale "tap to place" on the countdown).
+  if (c.voice && c.voice.state === c.state && now - c.voice.at < VOICE_NOTE_MS) {
+    // When the action itself changed the screen (cancelled, skipped...), just confirm what was heard.
+    if (c.voice.result === 'done') return `mic · heard "${clip(safe(c.voice.heard), 40)}"`
+    return `mic · ${clip(safe(c.voice.message), 58)}`
+  }
+  return c.voiceHint ? `mic · ${c.voiceHint}` : ''
+}
 
 export function fmtPrice(v: number | null | undefined): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return '-'
@@ -58,11 +78,17 @@ function levels(c: CardView): string[] {
   const tps = c.targets.map(fmtPrice).join('/')
   return [
     `${(c.side ?? '?').toUpperCase()} ${c.symbol ?? '?'}  entry ${fmtPrice(c.entry)}`,
-    `SL ${fmtPrice(c.stop)}  TP ${tps || '-'}${c.rr !== null ? `   R:R ${c.rr.toFixed(1)}` : ''}`,
+    `SL ${fmtPrice(c.userStop ?? c.stop)}${c.userStop !== null && c.userStop !== undefined ? ' (you)' : ''}  TP ${tps || '-'}${c.rr !== null ? `   R:R ${c.rr.toFixed(1)}` : ''}`,
   ]
 }
 
-export function cardScreen(c: CardView, now: number, pos: string): string {
+export function cardScreen(c: CardView, now: number, pos: string, v?: VoiceUi): string {
+  const body = cardBody(c, now, pos)
+  const line = c.state === 'placing' ? '' : voiceLine(c, v, now)
+  return line ? `${body}\n${line}` : body
+}
+
+function cardBody(c: CardView, now: number, pos: string): string {
   if (c.state === 'countdown') return countdownScreen(c, now)
   if (c.state === 'placing') return [`${actionLabel(c)}...`, '', 'Sent to Bybit Demo · waiting for fill'].join('\n')
   if (c.state === 'filled' || c.state === 'failed' || c.state === 'cancelled') return resultScreen(c)

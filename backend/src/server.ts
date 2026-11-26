@@ -6,6 +6,9 @@ import { config } from './config.js'
 import { ingest } from './pipeline.js'
 import { ActionError, cancel, confirm, dismiss, skip } from './executor.js'
 import { cards, isActive, session } from './store.js'
+import { handleVoice } from './voice/apply.js'
+import { hintFor } from './voice/commands.js'
+import { MAX_AUDIO_MS, pcmDurationMs } from './voice/stt.js'
 import type { Card } from './types.js'
 
 const RESULT_STATES: Card['state'][] = ['filled', 'failed', 'cancelled']
@@ -37,6 +40,9 @@ export function cardView(c: Card) {
     cancelWindowMs: config.cancelWindowMs,
     order: c.order ?? null,
     position: c.position ?? null,
+    userStop: c.userStop ?? null,
+    voice: c.voice ?? null,
+    voiceHint: hintFor({ state: c.state, action: c.action }),
     record: c.record ?? null,
     error: c.state === 'failed' ? (c.error ?? null) : null,
   }
@@ -65,7 +71,26 @@ export async function startServer() {
     origin: (process.env.CALLOUT_CORS_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173').split(','),
   })
 
+  // Raw 16 kHz s16le mono PCM from the glasses mic (one utterance, cut by on-device VAD).
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: 512 * 1024 }, (_req, body, done) =>
+    done(null, body),
+  )
+
   app.get('/api/health', async () => ({ ok: true }))
+
+  app.post<{ Params: { id: string }; Body: Buffer }>('/api/cards/:id/voice', async (req, reply) => {
+    const pcm = req.body
+    if (!Buffer.isBuffer(pcm) || pcm.length === 0) return reply.code(400).send({ error: 'send raw PCM as application/octet-stream' })
+    if (pcmDurationMs(pcm.length) > MAX_AUDIO_MS) return reply.code(413).send({ error: 'utterance too long' })
+    try {
+      const r = await handleVoice(req.params.id, pcm)
+      const card = cards.get(req.params.id)
+      return { ...r, card: card ? cardView(card) : null }
+    } catch (e) {
+      const code = e instanceof ActionError ? e.code : 500
+      return reply.code(code).send({ error: (e as Error).message })
+    }
+  })
   app.get('/api/state', async () => stateView())
 
   app.post<{ Params: { id: string; action: string } }>('/api/cards/:id/:action', async (req, reply) => {

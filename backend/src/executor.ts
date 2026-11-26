@@ -51,7 +51,7 @@ async function recheck(card: Card, stage: string): Promise<boolean> {
   }
   const price = await livePrice(p.symbol!, 0)
   const v = runChecks(
-    { parsed: p, rawText: card.msg.text, livePrice: price, sentAt: card.msg.sentAt, now: Date.now() },
+    { parsed: p, rawText: card.msg.text, livePrice: price, sentAt: card.msg.sentAt, now: Date.now(), stopOverride: card.userStop },
     { symbolWhitelist: config.symbolWhitelist, maxEntryDistancePct: config.maxEntryDistancePct, callExpiryMs: config.callExpiryMs },
   )
   const rules = v.state === 'ready' ? await userRuleFlags() : []
@@ -123,6 +123,35 @@ export function skip(id: string): Card {
   return card
 }
 
+/** Is the card's current size placeable on this symbol? Returns a neutral reason if not. */
+export async function sizeProblem(card: Card): Promise<string | null> {
+  try {
+    await sizeFor(card)
+    return null
+  } catch (e) {
+    return (e as Error).message
+  }
+}
+
+/**
+ * Re-run all checks + rules on a card that is NOT in countdown (used after a voice "set stop").
+ * Moves it between ready / blocked / expired; never places anything.
+ */
+export async function reevaluate(card: Card): Promise<void> {
+  if (card.state !== 'ready' && card.state !== 'blocked') return
+  const p = card.parsed!
+  const price = p.symbol ? await livePrice(p.symbol, 0) : undefined
+  const v = runChecks(
+    { parsed: p, rawText: card.msg.text, livePrice: price, sentAt: card.msg.sentAt, now: Date.now(), stopOverride: card.userStop },
+    { symbolWhitelist: config.symbolWhitelist, maxEntryDistancePct: config.maxEntryDistancePct, callExpiryMs: config.callExpiryMs },
+  )
+  card.facts = v.facts
+  if (v.state === 'expired') return setState(card, 'expired', { flags: v.flags })
+  const flags = v.state === 'ready' ? await userRuleFlags() : v.flags
+  if (card.state !== 'ready' && card.state !== 'blocked') return // changed while we awaited
+  setState(card, flags.length ? 'blocked' : 'ready', { flags })
+}
+
 export function dismiss(id: string): Card {
   const card = getCard(id)
   card.dismissed = true
@@ -173,7 +202,7 @@ async function orderParams(card: Card): Promise<{ params: Record<string, unknown
     params: {
       category: 'linear', symbol, side, orderType: 'Market', qty, positionIdx: 0, orderLinkId,
       // The caller's own stop/target, attached so the position is never left unprotected.
-      stopLoss: roundToTick(p.stop!, inst.tickSize),
+      stopLoss: roundToTick(card.userStop ?? p.stop!, inst.tickSize),
       takeProfit: roundToTick(p.targets[0]!, inst.tickSize),
       tpslMode: 'Full',
     },

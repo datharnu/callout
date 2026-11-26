@@ -10,6 +10,7 @@ import { insertCall } from './db.js'
 import { listPositions } from './positions.js'
 import { currentStats, ruleFlags, ruleSettings } from './rules.js'
 import { recordFor } from './track.js'
+import { warmUp } from './voice/stt.js'
 
 /** Card states an edit may replace. Anything at/after countdown is never touched by an edit. */
 const REPLACEABLE: Card['state'][] = ['ready', 'holding', 'blocked', 'unsure']
@@ -113,6 +114,7 @@ export async function ingest(msg: IncomingMessage): Promise<IngestResult> {
   if (card.state === 'expired' && parsed.kind === 'trade_call') session.expired++
 
   cards.set(card.id, card)
+  warmUp() // the user may speak to this card: have the speech-to-text connection ready
   audit('card_created', {
     id: card.id,
     state: card.state,
