@@ -1,15 +1,56 @@
-# Callout
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-dark.png">
+    <img src="docs/brand/logo-light.png" alt="Callout" width="400">
+  </picture>
+</p>
 
-**Checks the call before you take it.**
+<p align="center">
+  <b>Checks the call before you take it.</b><br>
+  Telegram trade calls, checked in code against the live Bybit price, the caller's record and your own rules,<br>
+  then placed on Bybit Demo from Even Realities G2 glasses. The AI only reads the call. Voice picks, a tap confirms.
+</p>
+
+<p align="center">
+  <a href="docs/media/Callout-demo.mp4"><img alt="Demo video" src="https://img.shields.io/badge/demo%20video-2:08-1F6B45?style=flat-square"></a>
+  <a href="#proof-one-real-order-three-places"><img alt="Proof" src="https://img.shields.io/badge/proof-same%20order%20ID%20in%203%20places-D8920F?style=flat-square"></a>
+  <a href="#accuracy"><img alt="Unsafe one-tap cards" src="https://img.shields.io/badge/unsafe%20one--tap%20cards-0%20%2F%20269-C93D25?style=flat-square"></a>
+  <a href="#voice"><img alt="Risky voice misfires" src="https://img.shields.io/badge/risky%20voice%20misfires-0%20%2F%20180-F5A524?style=flat-square"></a>
+  <a href="#setup"><img alt="Unit tests" src="https://img.shields.io/badge/unit%20tests-65-1F2A44?style=flat-square"></a>
+  <a href="#business"><img alt="Track" src="https://img.shields.io/badge/track-03%20Exchanges%20%26%20Stocks-1F6FB8?style=flat-square"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-all%20rights%20reserved-5B6478?style=flat-square"></a>
+</p>
+
+<p align="center">
+  <a href="docs/media/Callout-demo.mp4"><b>Demo video</b></a> ·
+  <a href="#proof-one-real-order-three-places"><b>Proof</b></a> ·
+  <a href="#how-it-works"><b>How it works</b></a> ·
+  <a href="#safety"><b>Safety</b></a> ·
+  <a href="#voice"><b>Voice</b></a> ·
+  <a href="#accuracy"><b>Accuracy</b></a> ·
+  <a href="#setup"><b>Setup</b></a>
+</p>
+
+<p align="center">
+  <a href="docs/media/Callout-demo.mp4"><img src="docs/brand/demo-cover.png" alt="Watch the Callout demo (2:08)" width="760"></a><br>
+  <sub>▶ <a href="docs/media/Callout-demo.mp4">Watch the demo (2:08)</a>: recorded live in the Even Realities G2 simulator, on Bybit Demo with demo money</sub>
+</p>
 
 Callout reads the Telegram trade-call groups you choose. It checks each call against the live market, the caller's track record and your own trading rules. Then it puts one card on your Even Realities G2 glasses. Tap once, or say "half size", "set stop 59.2k" or "skip", and the order goes to **Bybit Demo Trading**, with a cancel window, a real order ID on the glasses and a receipt posted back to Telegram.
 
 > Callout executes the user's own confirmed decision, never the group's advice. **Not financial advice.** Demo money only: orders go to Bybit Demo Trading, and no user funds are held.
 
-- **▶ Demo video (3 min):** _link added after recording_
-- **Tracks:** 03 Exchanges & Stocks (main), 01 Messaging & News. Also entered for Best Telegram integration.
-- **Who it's for:** active crypto traders who follow Telegram call groups and trade on Bybit.
-- **Status:** works end to end in the Even Hub simulator. A real Telegram call was placed on Bybit Demo from the glasses UI, with the receipt replied in the group. Voice commands work end to end through real speech-to-text (screenshots below).
+| | |
+|---|---|
+| **Tracks** | 03 Exchanges & Stocks (main) · 01 Messaging & News · Best Telegram integration |
+| **Who it's for** | Active crypto traders who follow Telegram call groups and trade on Bybit |
+| **Built with** | Even Hub SDK + simulator · grammY (Telegram bot) · Claude Haiku 5.5 (extraction only) · ElevenLabs Scribe (speech-to-text) · Bybit V5 API (Demo for orders, mainnet for prices) · Fastify · SQLite |
+| **Status** | Works end to end in the Even Hub simulator: a live Telegram call, adjusted by voice, placed on Bybit Demo from the glasses, with the receipt back in the group |
+| **Measured** | 0 unsafe one-tap cards in 269 labeled messages · 0 risky misfires in 180 spoken commands (6 accents) · 65 unit tests · see [Accuracy](#accuracy) and [Voice](#voice) |
+
+---
+
+### Screens
 
 | Call card | Scam call blocked | Cancel window |
 |---|---|---|
