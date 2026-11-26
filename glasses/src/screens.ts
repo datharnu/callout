@@ -7,13 +7,14 @@ const BAR_WIDTH = 20
 const VOICE_NOTE_MS = 8000 // how long the result of a voice command stays on the card
 
 export interface VoiceUi {
-  status: 'off' | 'unavailable' | 'listening' | 'hearing' | 'sending'
+  status: 'off' | 'unavailable' | 'no_audio' | 'listening' | 'hearing' | 'sending'
 }
 
 /** Bottom line of every card: what the mic is doing, or what the last command did. */
 export function voiceLine(c: CardView, v: VoiceUi | undefined, now: number): string {
   if (!v || v.status === 'off') return ''
   if (v.status === 'unavailable') return 'voice unavailable · tap works'
+  if (v.status === 'no_audio') return 'mic · no audio (check mic permission) · tap works'
   if (v.status === 'hearing') return 'mic · hearing you...'
   if (v.status === 'sending') return 'mic · working...'
   // A note is shown only on the card state it was made in (never a stale "tap to place" on the countdown).

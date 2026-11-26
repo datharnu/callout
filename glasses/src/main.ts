@@ -88,6 +88,7 @@ async function onUtterance(pcm: Uint8Array) {
 function voiceUi(): VoiceUi {
   if (micUnavailable) return { status: 'unavailable' }
   if (!micOn) return { status: 'off' }
+  if (vad.silentInput) return { status: 'no_audio' }
   if (voiceSending) return { status: 'sending' }
   if (vad.speaking) return { status: 'hearing' }
   return { status: 'listening' }
@@ -213,7 +214,9 @@ const unsubscribe = bridge.onEvenHubEvent(event => {
   if (audio) {
     if (!micOn) return
     const wasSpeaking = vad.speaking
+    const wasSilent = vad.silentInput
     vad.push(audio.audioPcm, (audio.speakerRole as string as SpeakerRole) ?? 'unknown')
+    if (wasSilent !== vad.silentInput) render()
     if (!wasSpeaking && vad.speaking) {
       voiceCardId = selected()?.id ?? null
       render()

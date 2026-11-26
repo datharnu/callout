@@ -77,6 +77,15 @@ test('long monologue is capped at max utterance length', () => {
   assert.ok(got.every(u => ms(u) <= 6000), got.map(ms).join(','))
 })
 
+test('exact digital silence is reported as a blocked mic; real noise is not', () => {
+  const v = new Vad(() => {})
+  v.push(new Uint8Array(2 * 16000 * 3)) // 3 s of exact zeros
+  assert.equal(v.silentInput, true)
+  const w = new Vad(() => {})
+  feed(w, pcm([[3000, 0]])) // low noise, like a real quiet room
+  assert.equal(w.silentInput, false)
+})
+
 test('reset drops a partial utterance', () => {
   const got: Uint8Array[] = []
   const v = new Vad(u => got.push(u))

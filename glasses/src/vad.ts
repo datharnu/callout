@@ -42,6 +42,8 @@ export class Vad {
   private quietRun = 0
   private speechChunks = 0
   private _speaking = false
+  private zeroMs = 0 // how long the mic has delivered exact digital silence
+  private sawSignal = false
 
   constructor(
     private readonly onUtterance: (pcm: Uint8Array) => void,
@@ -54,6 +56,14 @@ export class Vad {
     return this._speaking
   }
 
+  /**
+   * A real microphone never produces exact zeros for seconds on end. If it does, the OS is
+   * blocking the mic (e.g. macOS microphone permission), so the UI should say so.
+   */
+  get silentInput(): boolean {
+    return !this.sawSignal && this.zeroMs >= 2000
+  }
+
   /** Drop any partial utterance (e.g. the card changed or the mic was turned off). */
   reset(): void {
     this.pending = new Int16Array(0)
@@ -61,6 +71,8 @@ export class Vad {
     this.utterance = []
     this.loudRun = this.quietRun = this.speechChunks = 0
     this._speaking = false
+    this.zeroMs = 0
+    this.sawSignal = false
   }
 
   /** Feed one mic frame (any length). Frames from another speaker are treated as silence. */
@@ -76,7 +88,13 @@ export class Vad {
 
   private chunk(c: Int16Array, role: SpeakerRole): void {
     let sum = 0
-    for (let k = 0; k < c.length; k++) sum += c[k]! * c[k]!
+    let any = false
+    for (let k = 0; k < c.length; k++) {
+      sum += c[k]! * c[k]!
+      if (c[k] !== 0) any = true
+    }
+    if (any) this.sawSignal = true
+    else this.zeroMs += CHUNK_MS
     const rms = role === 'other' ? 0 : Math.sqrt(sum / c.length)
     const n = (ms: number) => Math.round(ms / CHUNK_MS)
 
