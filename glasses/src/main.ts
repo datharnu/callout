@@ -5,6 +5,8 @@ import {
   TextContainerUpgrade,
   OsEventTypeList,
   AudioInputSource,
+  StartUpPageCreateResult,
+  RebuildPageContainer,
 } from '@evenrealities/even_hub_sdk'
 import { fetchState, sendAction, sendVoice, type Action, type CardView, type StateView } from './api'
 import { cardScreen, homeScreen, type VoiceUi } from './screens'
@@ -28,7 +30,17 @@ const main = new TextContainerProperty({
   content: 'CALLOUT · connecting...',
   isEventCapture: 1,
 })
-await bridge.createStartUpPageContainer(new CreateStartUpPageContainer({ containerTotalNum: 1, textObject: [main] }))
+// The startup page can only be created once per session. After a reload (dev hot-reload, or the
+// WebView reloading on the phone) creation fails, so rebuild the existing page instead; otherwise
+// every later textContainerUpgrade silently goes nowhere and the glasses freeze on old content.
+// A host that lost track of the previous session may never answer at all, so don't wait forever.
+const withTimeout = <T,>(pr: Promise<T>, ms: number): Promise<T | 'timeout'> =>
+  Promise.race([pr, new Promise<'timeout'>(r => setTimeout(() => r('timeout'), ms))])
+const created = await withTimeout(bridge.createStartUpPageContainer(new CreateStartUpPageContainer({ containerTotalNum: 1, textObject: [main] })), 4000)
+if (created !== StartUpPageCreateResult.success) {
+  const rebuilt = await withTimeout(bridge.rebuildPageContainer(new RebuildPageContainer({ containerTotalNum: 1, textObject: [main] })), 4000)
+  console.log(`[callout] page create → ${created}; rebuilt existing page → ${rebuilt}`)
+} else console.log('[callout] page created')
 
 let state: StateView | null = null
 let offline = false
