@@ -37,7 +37,7 @@ Callout runs in **session mode**: start a trading session, keep Callout open, an
 
 **Why it's defensible.** The record of calls Callout has observed grows with every user and group, and it can't be rebuilt after the fact: a caller's history is only verifiable from the moment someone was watching. More users means more groups observed, which means better records for everyone.
 
-**Why glasses.** Calls are time-critical and arrive while you're doing something else. A glance plus a tap (or "half size, place it") beats unlocking a phone, finding the chat, and opening an exchange app.
+**Why glasses.** A call lands while you're doing something else: walking, in a meeting, cooking. Your phone is in your pocket. Acting on it means unlocking the phone, finding the message in a busy group, opening the exchange app, logging in, and typing the order. By then the price has often moved, and you decided without checking anything. **That moment is what Callout is for:** the checked call is already in front of your eyes, and a glance plus a tap (or "half size, place it") is the whole decision, with the price re-checked at that instant.
 
 **Guardrails before real money.** Callout never gives advice: it executes the user's own confirmed decision. Real-money execution would come only after legal review and the licensing required where it operates (for example VARA in Dubai, or MiCA in the EU), with the same safety design: code-only checks, user rules, cancel window, reduce-only closes.
 
@@ -111,7 +111,7 @@ Voice is built for the moment you have a call card in front of you and your hand
 
 We also tested by speaking into the simulator through a laptop microphone. That live test is what led to multi-command sentences, the "wait for the price" behavior, the longer pre-roll and pause, and the conversation filter.
 
-Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). **Caveat:** synthetic speech (macOS voices), not a real G2 mic on a noisy street.
+Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). **This is a smoke test, not a benchmark:** 30 phrases spoken by synthetic voices. The next step is the real G2 microphone on a noisy street.
 
 ## Safety
 
@@ -150,6 +150,8 @@ Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). *
 Full report: [`backend/eval/RESULTS.md`](backend/eval/RESULTS.md). **Caveat:** the set was written by the same team that wrote the parser prompt, so treat these numbers as a smoke test, not a benchmark.
 
 ## Caller track record (synthetic)
+
+**Why it matters.** Every follower of a call group has the same question: *is this caller actually any good?* The group can't answer it honestly. Callers delete losing calls, repost winners, and screenshots prove nothing. Callout answers from what it saw, measured against what the market actually did, and keeps that record even when the message is gone. It's the fact you most want at the moment you decide.
 
 For each call Callout sees, it walks **Bybit mainnet 1-minute candles** from the call time. The entry must be touched first; then whichever of TP or SL is hit first decides. If both fall inside the same candle, the call is "ambiguous". Calls with no entry within 7 days, or entered but unresolved after 7 days, are counted separately. The card shows counts and sample size, never a score: `Seen 11 · 3 TP · 6 SL · 2 open (synthetic)`.
 
@@ -227,7 +229,7 @@ screenshots/        simulator captures
 
 ## What existed before Nov 23
 
-Nothing in this repository was written before the build week. The git history starts on Nov 26, 2026. Third-party starting points:
+Nothing in this repository was written before Nov 23. The git history starts on Nov 26, 2026, during the build week (Nov 23–29). Third-party starting points:
 
 - `glasses/` began from the official **Even Hub minimal template** (`npx degit even-realities/evenhub-templates/minimal`). We upgraded its dependencies and replaced `src/` with Callout's screens and input handling. Its MIT notice is in [`glasses/THIRD_PARTY_NOTICES.md`](glasses/THIRD_PARTY_NOTICES.md).
 - Libraries: `@evenrealities/even_hub_sdk`, simulator and CLI; `@anthropic-ai/sdk`; `grammy`; `fastify`; `zod`; `better-sqlite3`; `undici`. Speech-to-text is the ElevenLabs API.
@@ -268,5 +270,7 @@ Nothing in this repository was written before the build week. The git history st
 
 
 ## License
+
+**Why not open source (yet).** The defensible asset is the record of calls Callout has observed (see Business), and the code is the engine that builds it. The code is fully public so judges can read it, run it and verify every claim here; reuse is by permission for now.
 
 Copyright (c) 2026 datharnu. **All rights reserved.** The code is public so it can be evaluated for the Heads Up hackathon: you may view it and run it to evaluate the submission, but not copy, modify or redistribute it without written permission. Template-derived files in `glasses/` keep their MIT license ([notice](glasses/THIRD_PARTY_NOTICES.md)). See [LICENSE](LICENSE).

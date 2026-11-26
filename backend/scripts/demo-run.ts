@@ -148,8 +148,15 @@ const filled = await waitFor('the fill', async () => {
 await sleep(800)
 await shot('05-filled')
 if (filled?.order) {
-  note(`FILLED ${filled.order.qty} @ ${filled.order.avgPrice} · order ${filled.order.orderId}`)
-  note('Now show: bybit.com → Demo Trading → Orders (same order ID), then the receipt reply in Telegram.')
+  const id = filled.order.orderId
+  const shortId = `${id.slice(0, 8)}...${id.slice(-4)}`
+  const bar = '═'.repeat(id.length + 4)
+  console.log(`\n   ╔${bar}╗\n   ║  ${id}  ║   ← FULL ORDER ID\n   ╚${bar}╝`)
+  note(`FILLED ${filled.order.qty} @ ${filled.order.avgPrice} · glasses show ${shortId}`)
+  say('Show the proof now (hold each shot ~3 s):')
+  note(`1. Glasses: "Order ${shortId} · Bybit Demo"`)
+  note(`2. bybit.com → Demo Trading → Orders → Order History: the row whose Order ID starts ${id.slice(0, 8)}`)
+  note('3. Telegram: the receipt reply under your call, with the same short ID')
 } else note(`Not filled: ${filled?.state} ${filled?.error ?? filled?.flags?.join(', ')}`)
 await enter('continue to safety')
 await input('click') // dismiss result
