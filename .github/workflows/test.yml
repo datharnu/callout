@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Unit tests need no keys: they never call Bybit, Telegram, Anthropic or ElevenLabs.
-      CALLOUT_DB: ${{ runner.temp }}/callout-test.sqlite
-      CALLOUT_LOG_DIR: ${{ runner.temp }}/logs
+      CALLOUT_DB: /tmp/callout-test/callout.sqlite
+      CALLOUT_LOG_DIR: /tmp/callout-test/logs
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
