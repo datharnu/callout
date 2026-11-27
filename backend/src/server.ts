@@ -21,7 +21,7 @@ import {
   byTokenOrNull, createJudge, demoAdminId, JUDGE, JUDGE_AUTO_CLOSE_MS, judgePosition, newPairCode, owner, ownerTokenConfigured,
   quotaLeft, takeQuota, type Sandbox,
 } from './sandbox.js'
-import { group } from './telegram.js'
+import { group, registerTelegramWebhook, webhookMode } from './telegram.js'
 import type { Card } from './types.js'
 
 declare module 'fastify' {
@@ -130,9 +130,10 @@ function fail(reply: FastifyReply, e: unknown) {
 export async function startServer() {
   const app = Fastify({ logger: false, trustProxy: true })
   app.decorateRequest('sandbox', null as unknown as Sandbox)
-  await app.register(cors, {
-    origin: (process.env.CALLOUT_CORS_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173').split(','),
-  })
+  // Origins allowed to call the API from a browser (the static site, local dev). Bare hosts get https://.
+  const origins = (process.env.CALLOUT_CORS_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173')
+    .split(',').map(o => o.trim()).filter(Boolean).map(o => (/^https?:\/\//.test(o) ? o : `https://${o}`))
+  await app.register(cors, { origin: origins })
 
   // Raw 16 kHz s16le mono PCM from the glasses mic (one utterance, cut by on-device VAD).
   app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: 512 * 1024 }, (_req, body, done) =>
@@ -142,7 +143,7 @@ export async function startServer() {
   // Resolve the sandbox for every /api call except health and sandbox creation.
   app.addHook('onRequest', async (req, reply) => {
     const url = req.url.split('?')[0]!
-    if (!url.startsWith('/api/') || url === '/api/health' || (url === '/api/sandbox' && req.method === 'POST')) return
+    if (!url.startsWith('/api/') || url === '/api/health' || url === '/api/telegram/hook' || (url === '/api/sandbox' && req.method === 'POST')) return
     const token = tokenOf(req)
     // A wrong token is always refused; only a request with NO token, made directly on this machine
     // while no owner token is configured, counts as the owner (local dev and scripts).
@@ -152,6 +153,7 @@ export async function startServer() {
   })
 
   app.get('/api/health', async () => ({ ok: true }))
+  if (webhookMode) registerTelegramWebhook(app)
 
   app.post('/api/sandbox', async (req, reply) => {
     const ip = clientIp(req)

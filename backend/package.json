@@ -17,7 +17,8 @@
     "e2e:voice": "tsx scripts/e2e-voice.ts",
     "eval:voice": "tsx eval/voice.ts",
     "demo": "tsx scripts/demo-run.ts",
-    "e2e:judge": "tsx scripts/e2e-judge.ts"
+    "e2e:judge": "tsx scripts/e2e-judge.ts",
+    "tg:unhook": "tsx scripts/telegram-unhook.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.14.0",

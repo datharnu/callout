@@ -1,5 +1,7 @@
 // Telegram in (group messages + edits) and out (receipts).
-import { Bot, type Context } from 'grammy'
+import { Bot, webhookCallback, type Context } from 'grammy'
+import { createHash } from 'node:crypto'
+import type { FastifyInstance } from 'fastify'
 import { requireEnv } from './env.js'
 import { ingest } from './pipeline.js'
 import { linkedTo, owner, redeemPairCode } from './sandbox.js'
@@ -64,6 +66,16 @@ function handle(edited: boolean) {
   }
 }
 
+// Telegram may re-deliver an update (e.g. while a sleeping server wakes up): handle each update once.
+const seenUpdates = new Set<number>()
+bot.use(async (ctx, next) => {
+  const id = ctx.update.update_id
+  if (seenUpdates.has(id)) return
+  seenUpdates.add(id)
+  if (seenUpdates.size > 5000) seenUpdates.delete(seenUpdates.values().next().value!)
+  await next()
+})
+
 bot.on(['message', 'channel_post'], handle(false))
 bot.on(['edited_message', 'edited_channel_post'], handle(true))
 bot.catch(err => console.error('[telegram] handler error:', err.error))
@@ -86,13 +98,31 @@ export async function sendReceipt(card: Card): Promise<boolean> {
   return true
 }
 
+const ALLOWED = ['message', 'edited_message', 'channel_post', 'edited_channel_post'] as const
+/** Webhook mode (free hosting that sleeps): Telegram calls us, which also wakes the server. */
+export const webhookMode = process.env.CALLOUT_TELEGRAM_MODE === 'webhook'
+const WEBHOOK_PATH = '/api/telegram/hook'
+// Derived from the bot token (no extra secret to manage); Telegram sends it back on every call.
+const webhookSecret = createHash('sha256').update(`callout-webhook:${requireEnv('TELEGRAM_BOT_TOKEN')}`).digest('hex').slice(0, 48)
+
+export function registerTelegramWebhook(app: FastifyInstance) {
+  // Respond within Telegram's window even if parsing is slow; processing continues in the background.
+  app.post(WEBHOOK_PATH, webhookCallback(bot, 'fastify', { secretToken: webhookSecret, onTimeout: 'return', timeoutMilliseconds: 8000 }))
+}
+
 export async function startTelegram(): Promise<void> {
   const me = await bot.api.getMe()
   const chatId = [...config.allowedChatIds][0]
   if (chatId) group.title = await bot.api.getChat(Number(chatId)).then(c => ('title' in c ? c.title ?? '' : '')).catch(() => '')
   console.log(`[telegram] @${me.username} · privacy ${me.can_read_all_group_messages ? 'off' : 'ON (bot only sees commands!)'}`)
-  void bot.start({
-    drop_pending_updates: true,
-    allowed_updates: ['message', 'edited_message', 'channel_post', 'edited_channel_post'],
-  })
+  if (webhookMode) {
+    const base = (process.env.CALLOUT_PUBLIC_URL ?? process.env.RENDER_EXTERNAL_URL ?? '').replace(/\/$/, '')
+    if (!base) throw new Error('webhook mode needs CALLOUT_PUBLIC_URL (or RENDER_EXTERNAL_URL)')
+    await bot.init()
+    await bot.api.setWebhook(`${base}${WEBHOOK_PATH}`, { secret_token: webhookSecret, allowed_updates: [...ALLOWED], drop_pending_updates: false })
+    console.log(`[telegram] webhook → ${base}${WEBHOOK_PATH}`)
+    return
+  }
+  // Polling (local). Fails with 409 while a webhook is set: delete it first (npm run tg:unhook).
+  void bot.start({ drop_pending_updates: true, allowed_updates: [...ALLOWED] })
 }

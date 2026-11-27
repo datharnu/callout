@@ -1,0 +1,36 @@
+# Render (free tier): the site is static (never sleeps); the API sleeps when idle and wakes on the
+# first request or Telegram webhook. See docs/HOSTED.md. Secrets are entered in the Render dashboard.
+services:
+  - type: web
+    name: callout-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - { key: BYBIT_DEMO_API_KEY, sync: false }
+      - { key: BYBIT_DEMO_API_SECRET, sync: false }
+      - { key: TELEGRAM_BOT_TOKEN, sync: false }
+      - { key: TELEGRAM_ALLOWED_CHAT_IDS, sync: false }
+      - { key: TELEGRAM_ALLOWED_SENDER_IDS, sync: false }
+      - { key: TELEGRAM_GROUP_INVITE_URL, sync: false }
+      - { key: ANTHROPIC_API_KEY, sync: false }
+      - { key: ELEVENLABS_API_KEY, sync: false }
+      - { key: CALLOUT_OWNER_TOKEN, sync: false }
+      - { key: CALLOUT_CORS_ORIGINS, sync: false } # the static site's https URL
+      - { key: CALLOUT_TELEGRAM_MODE, value: webhook }
+      - { key: CALLOUT_CLOSE_POSITIONS_ON_BOOT, value: "1" }
+      - { key: CALLOUT_DEMO_MODE, value: "1" }
+      - { key: CALLOUT_PAUSE_AFTER_LOSSES, value: "0" }
+  - type: web
+    name: callout-site
+    runtime: static
+    buildCommand: >-
+      cd glasses && npm ci && npm run build && cd ../web && npm ci && npm run build &&
+      mkdir -p dist/glasses dist/media && cp -r ../glasses/dist/. dist/glasses/ && cp ../docs/media/* dist/media/
+    staticPublishPath: ./web/dist
+    routes:
+      - { type: rewrite, source: /try, destination: /try/index.html }
+    envVars:
+      - { key: VITE_CALLOUT_API, sync: false } # the API's https URL

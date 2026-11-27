@@ -21,4 +21,15 @@ const refresh = () => refreshOutcomes().catch(e => console.warn('[track] refresh
 void refresh()
 setInterval(refresh, 5 * 60_000).unref()
 await startServer()
+// Free hosting restarts lose the judge auto-close timer: start from a clean demo account.
+if (process.env.CALLOUT_CLOSE_POSITIONS_ON_BOOT === '1') {
+  const { bybit } = await import('./bybit/demo.js')
+  const { closePosition, listPositions } = await import('./positions.js')
+  const { audit } = await import('./store.js')
+  for (const p of await listPositions(bybit).catch(() => [])) {
+    const r = await closePosition(bybit, p.symbol, `boot:${Date.now()}:${p.symbol}`).catch(e => ({ retCode: -1, retMsg: String(e) }))
+    audit('boot_close', { symbol: p.symbol, side: p.side, size: p.size, retCode: r.retCode })
+    console.log(`[boot] closed leftover demo position ${p.symbol} ${p.side} ${p.size} → ${r.retCode}`)
+  }
+}
 if (process.env.CALLOUT_NO_TELEGRAM !== '1') await startTelegram()

@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Footer, Nav, SplitHeading, Eyebrow, VIDEO } from '../components/ui'
 import { PageEnter, EASE } from '../components/motion'
 import {
-  ensureSandbox, getState, getSettings, LimitError, MOCK, onTokenChange, pairStatus, sendSample, startPair,
+  ensureSandbox, getState, getSettings, LimitError, MOCK, onTokenChange, pairStatus, sendSample, startPair, waitForServer,
   type CardLite, type JudgeSettings, type PairStart, type SampleKind, type StateLite,
 } from '../lib/api'
 import { startMic, type MicHandle } from '../lib/mic'
@@ -25,9 +25,20 @@ interface LogLine { at: number; text: string; tone?: 'amber' | 'green' }
 export function Try() {
   const [token, setToken] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [waking, setWaking] = useState<number | null>(null) // seconds spent waking the backend, or null
   useEffect(() => {
     const off = onTokenChange(t => setToken(t))
-    ensureSandbox().then(s => setToken(s.token)).catch(e => setErr(e instanceof Error ? e.message : String(e)))
+    // Only show the waking screen if the server hasn't answered within ~1 s (no flash on a warm server).
+    waitForServer(sec => setWaking(sec >= 1 ? sec : null))
+      .then(() => {
+        setWaking(null)
+        return ensureSandbox()
+      })
+      .then(s => setToken(s.token))
+      .catch(e => {
+        setWaking(null)
+        setErr(e instanceof Error ? e.message : String(e))
+      })
     return () => void off()
   }, [])
 
@@ -45,6 +56,7 @@ export function Try() {
             </p>
           </div>
         </section>
+        <AnimatePresence>{waking !== null && !token && <WakeUp seconds={waking} />}</AnimatePresence>
         {err && <div className="wrap inner"><div className="try-error">{err}</div></div>}
         {token && <Workbench token={token} />}
       </PageEnter>
@@ -374,4 +386,29 @@ function diff(a: StateLite | null, b: StateLite, push: (t: string, tone?: LogLin
 }
 function cardLabel(c: CardLite) {
   return c.symbol ? `${(c.side ?? '').toUpperCase()} ${c.symbol}` : 'message'
+}
+
+/** Shown while free hosting wakes the backend up, so nobody thinks the page is stuck. */
+function WakeUp({ seconds }: { seconds: number }) {
+  const pct = Math.min(96, (seconds / 50) * 100) // most wake-ups take 30-50 s
+  return (
+    <motion.section
+      className="wrap inner"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.4, ease: EASE }}
+    >
+      <div className="wake">
+        <div className="wake-screen">
+          <pre>{`CALLOUT · waking up the server${'.'.repeat((seconds % 3) + 1)}\n\nFree hosting naps when nobody is around.\nUsually ready in 30-50 s · ${seconds} s so far`}</pre>
+          <div className="wake-bar"><i style={{ width: `${pct}%` }} /></div>
+        </div>
+        <p className="t-small wake-note">
+          The page continues by itself once the backend answers. Nothing to click. If you were here before, your sandbox
+          starts fresh.
+        </p>
+      </div>
+    </motion.section>
+  )
 }

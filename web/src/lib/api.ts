@@ -1,6 +1,31 @@
 // Sandbox client for /try (docs/HOSTED.md). The token is a per-visitor sandbox id, kept in localStorage.
 const KEY = 'callout.token'
 export const MOCK = new URLSearchParams(location.search).get('mock') === '1' // local dev only
+/** Backend origin. Empty = same origin (local / single-service hosting); set at build time when the API lives elsewhere. */
+export const API = ((import.meta.env.VITE_CALLOUT_API as string | undefined) ?? '').replace(/\/$/, '')
+
+/**
+ * Free hosting puts the backend to sleep when idle; the first request wakes it (~30-50 s).
+ * Resolves once /api/health answers; reports elapsed seconds while waiting.
+ */
+export async function waitForServer(onWaiting: (seconds: number) => void, maxMs = 150_000): Promise<void> {
+  if (MOCK) return
+  const t0 = Date.now()
+  while (Date.now() - t0 < maxMs) {
+    try {
+      const r = await fetch(`${API}/api/health`, { signal: AbortSignal.timeout(8000), cache: 'no-store' })
+      if (r.ok) return
+    } catch {}
+    onWaiting(Math.round((Date.now() - t0) / 1000))
+    await new Promise(r => setTimeout(r, 1500))
+  }
+  throw new Error('The Callout server did not wake up. Please reload in a minute.')
+}
+
+/** Fire-and-forget: start waking the backend while the visitor reads the landing page. */
+export function prewarm() {
+  if (!MOCK) fetch(`${API}/api/health`, { cache: 'no-store' }).catch(() => {})
+}
 
 export class LimitError extends Error {}
 
@@ -22,7 +47,7 @@ export async function ensureSandbox(force = false): Promise<Sandbox> {
   }
   if (MOCK) current = { token: 'mock', sandboxId: 'mock', expiresAt: '' }
   else {
-    const r = await fetch('/api/sandbox', { method: 'POST' })
+    const r = await fetch(`${API}/api/sandbox`, { method: 'POST' })
     if (r.status === 429) throw new LimitError('Too many new sessions from your network. Try again in a few minutes.')
     if (!r.ok) throw new Error(`Could not start a session (${r.status})`)
     current = (await r.json()) as Sandbox
@@ -38,7 +63,7 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}, ret
   const headers = new Headers(init.headers)
   if (!MOCK) headers.set('authorization', `Bearer ${sb.token}`)
   if (init.body && !headers.has('content-type')) headers.set('content-type', 'application/json')
-  const r = await fetch(path, { ...init, headers })
+  const r = await fetch(`${API}${path}`, { ...init, headers })
   if (r.status === 401 && retry && !MOCK) {
     localStorage.removeItem(KEY)
     current = null
