@@ -138,10 +138,12 @@ function fail(reply: FastifyReply, e: unknown) {
 export async function startServer() {
   const app = Fastify({ logger: false, trustProxy: true })
   app.decorateRequest('sandbox', null as unknown as Sandbox)
-  // Origins allowed to call the API from a browser (the static site, local dev). Bare hosts get https://.
-  const origins = (process.env.CALLOUT_CORS_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173')
-    .split(',').map(o => o.trim()).filter(Boolean).map(o => (/^https?:\/\//.test(o) ? o : `https://${o}`))
-  await app.register(cors, { origin: origins })
+  // Cross-origin calls: the .ehpk runs inside the Even app (its own origin), the simulator and local dev on others.
+  // Every /api call is authorised by a bearer token, never by cookies, so any origin may call it: a page on
+  // another site can't act on a session without its token. CALLOUT_CORS_ORIGINS narrows this if ever needed.
+  const listed = process.env.CALLOUT_CORS_ORIGINS?.split(',').map(o => o.trim()).filter(Boolean)
+    .map(o => (/^https?:\/\//.test(o) ? o : `https://${o}`))
+  await app.register(cors, { origin: listed?.length ? listed : true, credentials: false })
 
   // Raw 16 kHz s16le mono PCM from the glasses mic (one utterance, cut by on-device VAD).
   app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: 512 * 1024 }, (_req, body, done) =>

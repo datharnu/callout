@@ -47,7 +47,7 @@ Callout reads the Telegram trade-call groups you choose. It checks each call aga
 | **Who it's for** | Active crypto traders who follow Telegram call groups and trade on Bybit |
 | **Built with** | Even Hub SDK + simulator · grammY (Telegram bot) · Claude Haiku 5.5 (extraction only) · ElevenLabs Scribe (speech-to-text) · Bybit V5 API (Demo for orders, mainnet for prices) · Fastify · SQLite |
 | **Status** | Works end to end in the Even Hub simulator and **live at [callout-production-049324a2.up.railway.app](https://callout-production-049324a2.up.railway.app)**: a live Telegram call, adjusted by voice, placed on Bybit Demo from the glasses, with the receipt back in the group |
-| **Measured** | 0 unsafe one-tap cards in 269 labeled messages · 0 risky misfires in 180 spoken commands (6 accents) · 79 unit tests · see [Accuracy](#accuracy) and [Voice](#voice) |
+| **Measured** | 0 unsafe one-tap cards in 269 labeled messages · 0 risky misfires in 180 spoken commands (6 accents) · 82 unit tests · see [Accuracy](#accuracy) and [Voice](#voice) |
 
 ---
 
@@ -286,16 +286,25 @@ npm run eval         # labeled-set accuracy (about 260 Haiku calls, a few cents)
 npm run eval:voice   # voice accuracy, 180 utterances in 6 accents (macOS)
 npm run positions    # list demo positions;  -- --close  closes them reduce-only
 npm run judges -- pause   # hosted kill switch for "Try it live" (also: resume, status)
-cd ../glasses && npm test   # 19 tests (speech detection, browser-preview bridge, token + API base)
+cd ../glasses && npm test   # 22 tests (speech detection, browser-preview bridge, token + API base, own demo session)
 ```
 
 ### Package for Even Hub (`.ehpk`)
 
 ```bash
-cd glasses && npm run pack   # typecheck + build + evenhub pack → glasses/callout.ehpk
+cd glasses
+VITE_CALLOUT_API=https://callout-production-049324a2.up.railway.app npm run pack   # the submitted build → callout.ehpk
+npm run pack                                                                       # for your own backend on 127.0.0.1:8787
 ```
 
-The package (about 40 KB, SDK 0.0.16, Even app 2.2.10+) contains only the glasses app: no keys, no backend. This build talks to a Callout backend at `http://127.0.0.1:8787` (the only origin whitelisted in `app.json`), so it works where the backend runs on the same machine, as in the simulator. The hosted backend is already public and token-based ([Try it live](#try-it-live)), but the package isn't pointed at it yet: that takes a build with `VITE_CALLOUT_API=https://callout-production-049324a2.up.railway.app` and that origin added to the whitelist. To try Callout without any setup, use [`/try`](https://callout-production-049324a2.up.railway.app/try/) or open the hosted glasses app in the official simulator.
+The package (about 44 KB, SDK 0.0.16, Even app 2.2.10+) contains only the glasses app: no keys, no backend. The submitted build talks to the **hosted backend** (whitelisted in `app.json`, with `127.0.0.1:8787` for local use), so it works on its own on real G2 glasses:
+
+1. On launch with no link, it starts its **own demo session** (the same kind `/try` gives a visitor: $100 Bybit Demo orders, 3 a day, auto-closed after 2 minutes).
+2. The home screen says **"Tap: send a sample call"**. A tap brings a call on that session's own coin at the live price, through the normal checks. Tap again to place it, and the order ID appears on the glasses.
+3. The home screen also shows a **`/pair` code** and the Callout group's invite link. Send the code in the group and calls you post there arrive on your glasses, with the receipt replied in the thread.
+4. If the server restarts, the app quietly starts a fresh session. A session opened from a `/try` link is never replaced or re-paired by the glasses.
+
+Verified in the official Even Hub simulator against the live backend: own session → sample call → tap → filled on Bybit Demo (order `…e1771f5b`).
 
 ### Settings
 

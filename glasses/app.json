@@ -9,8 +9,9 @@
   "permissions": [
     {
       "name": "network",
-      "desc": "Reads trade-call cards from your Callout backend and sends your confirm/skip taps.",
+      "desc": "Reads trade-call cards from the Callout backend (hosted demo or your own) and sends your taps.",
       "whitelist": [
+        "https://callout-production-049324a2.up.railway.app",
         "http://127.0.0.1:8787",
         "http://localhost:8787"
       ]

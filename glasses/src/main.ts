@@ -1,6 +1,9 @@
-import { fetchState, sendAction, sendVoice, AuthError, type Action, type CardView, type StateView } from './api'
+import {
+  ensureSession, fetchState, newPairCode, pairStatus, renewOwnSession, sendAction, sendSample, sendVoice,
+  AuthError, OWN_SESSION, PausedError, type Action, type CardView, type PairCode, type StateView,
+} from './api'
 import { createBridge } from './bridge'
-import { cardScreen, homeScreen, type VoiceUi } from './screens'
+import { cardScreen, homeScreen, ownHomeScreen, type OwnSessionUi, type VoiceUi } from './screens'
 import { Vad } from './vad'
 
 const POLL_MS = 1000
@@ -9,6 +12,14 @@ const TAP_GUARD_MS = 1000 // ignore taps right after the screen changes (no acci
 // Even Hub SDK on the glasses / official simulator; postMessage in the browser preview (/try).
 const bridge = await createBridge()
 await bridge.createPage('CALLOUT · connecting...')
+
+// Opened from the .ehpk with no /try link and a hosted backend: start our own demo session.
+let paused = false
+let sessionError = false
+await ensureSession().catch(e => {
+  if (e instanceof PausedError) paused = true
+  sessionError = true // retried on every poll until a session exists
+})
 
 let state: StateView | null = null
 let offline = false
@@ -108,14 +119,17 @@ function render() {
   const c = selected()
   let content: string
   let key: string
-  if (authFailed) {
+  if (paused) {
+    content = 'CALLOUT\n\nThe public demo is paused right now.\nPlease check back later.'
+    key = 'paused'
+  } else if (authFailed) {
     content = 'CALLOUT\n\nSession not recognised.\nOpen Callout again from your link.'
     key = 'auth'
   } else if (!state) {
-    content = offline ? 'CALLOUT\n\nBackend offline · retrying' : 'CALLOUT · connecting...'
+    content = offline || sessionError ? 'CALLOUT\n\nBackend offline · retrying' : 'CALLOUT · connecting...'
     key = 'boot'
   } else if (!c) {
-    content = homeScreen(state, offline)
+    content = OWN_SESSION ? ownHomeScreen(state, own, offline) : homeScreen(state, offline)
     key = 'home'
   } else {
     selectedId = c.id
@@ -131,7 +145,7 @@ function render() {
     }
     shownKey = key
     shownAt = Date.now()
-    bridge.focus?.(c && key !== 'home' && key !== 'boot' && key !== 'auth' ? { id: c.id, state: c.state } : null)
+    bridge.focus?.(c && !['home', 'boot', 'auth', 'paused'].includes(key) ? { id: c.id, state: c.state } : null)
   }
   void setMic(!!c && VOICE_STATES.includes(c.state))
   if (content !== lastContent) {
@@ -143,15 +157,63 @@ function render() {
 let clockOffset = 0 // serverNow - localNow
 async function poll() {
   try {
+    if (sessionError) {
+      await ensureSession() // the first attempt failed (offline at launch): try again
+      sessionError = false
+    }
     state = await fetchState()
     clockOffset = state.now - Date.now()
     offline = false
     authFailed = false
+    paused = false
   } catch (e) {
-    if (e instanceof AuthError) authFailed = true
-    else offline = true
+    if (e instanceof PausedError) paused = true
+    else if (e instanceof AuthError) {
+      // Our own session is gone (the server restarted): start a fresh one instead of asking for a link.
+      if (await renewOwnSession()) {
+        own.pair = null
+        own.linkedAs = null
+      } else authFailed = true
+    } else offline = true
   }
   render()
+}
+
+// ── own demo session: pairing code + tap-for-a-sample (only when this app created the session) ──
+const own: OwnSessionUi & { pairFull: PairCode | null } = { pair: null, pairFull: null, linkedAs: null, note: null }
+async function refreshPairing() {
+  if (!OWN_SESSION || paused || authFailed) return
+  try {
+    const s = await pairStatus()
+    if (s.linked) {
+      own.linkedAs = s.telegram ?? 'your Telegram'
+      own.pair = null
+    } else {
+      own.linkedAs = null
+      if (!own.pairFull || own.pairFull.expiresAt - Date.now() < 30_000) {
+        own.pairFull = await newPairCode()
+        own.pair = own.pairFull
+      }
+    }
+  } catch {}
+  render()
+}
+let sampling = false
+async function tapOnHome() {
+  if (!OWN_SESSION || sampling) return
+  sampling = true
+  own.note = 'Sending a sample call...'
+  render()
+  try {
+    const r = await sendSample('clean')
+    own.note = r.outcome === 'error' ? `Could not send: ${(r.error ?? '').slice(0, 40)}` : null
+  } catch {
+    own.note = 'Could not send · tap to try again'
+  } finally {
+    sampling = false
+  }
+  await poll()
+  if (own.note) setTimeout(() => { own.note = null; render() }, 4000)
 }
 
 async function act(action: Action) {
@@ -173,7 +235,10 @@ async function act(action: Action) {
 function onTap() {
   const c = selected()
   console.log(`[callout] tap on ${c ? `${c.id} (${c.state})` : 'home'}`)
-  if (!c) return
+  if (!c) {
+    void tapOnHome() // own demo session: a tap on home sends a sample call
+    return
+  }
   if (Date.now() - shownAt < TAP_GUARD_MS && c.state !== 'countdown') {
     console.log('[callout] tap ignored: screen just changed')
     return
@@ -223,12 +288,15 @@ const unsubscribe = bridge.onEvent(e => {
   if (e.kind === 'exit') {
     clearInterval(pollTimer)
     clearInterval(tickTimer)
+    clearInterval(pairTimer)
     void bridge.audioControl(false)
     unsubscribe()
   }
 })
 
 const pollTimer = setInterval(() => void poll(), POLL_MS)
+const pairTimer = setInterval(() => void refreshPairing(), 5000)
+void refreshPairing()
 // Smooth countdown bar between polls.
 const tickTimer = setInterval(() => {
   if (selected()?.state === 'countdown') render()

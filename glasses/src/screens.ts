@@ -59,6 +59,34 @@ export function homeScreen(s: StateView, offline: boolean): string {
     .join('\n')
 }
 
+export interface OwnSessionUi {
+  pair: { code: string; group: { title?: string; inviteUrl?: string } } | null
+  linkedAs: string | null
+  note: string | null
+}
+
+/**
+ * Home screen for a demo session this app started itself (the .ehpk with no /try link): a tap sends a
+ * sample call; a /pair code links the wearer's Telegram so their own calls arrive here.
+ */
+export function ownHomeScreen(s: StateView, ui: OwnSessionUi, offline: boolean): string {
+  const group = clip(safe(ui.pair?.group.title || 'the Callout group'), 26)
+  const invite = ui.pair?.group.inviteUrl?.replace(/^https?:\/\//, '') ?? ''
+  const telegram = ui.linkedAs
+    ? [`Telegram linked: ${clip(safe(ui.linkedAs), 24)}`, 'Post a call in the group to see it here']
+    : ui.pair
+      ? ['Or post your own call from Telegram:', `join ${group}${invite ? ` · ${invite}` : ''}`, `then send   /pair ${ui.pair.code}`]
+      : ['Telegram: getting a pairing code...']
+  return [
+    `CALLOUT · demo session · ${s.session.muted} muted`,
+    offline ? 'Backend offline · retrying' : ui.note ?? '> Tap: send a sample call',
+    '',
+    ...telegram,
+    '',
+    'Bybit Demo money only · Double-tap to exit',
+  ].join('\n')
+}
+
 function header(c: CardView, pos: string): string {
   return `● ${clip(safe(c.sender), 22)} · allowlisted${c.edited ? ' · edited' : ''}${pos ? `   ${pos}` : ''}`
 }

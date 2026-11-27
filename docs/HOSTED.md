@@ -17,6 +17,11 @@ sandbox is configured from `.env` (allowlisted Telegram group + senders), exactl
 - `POST /api/sandbox` → `{ token, sandboxId, expiresAt }`. Creates a judge sandbox (rate-limited per IP). The token is a random
   secret; store it in `localStorage` (`callout.token`).
 - Every other `/api/*` call (except `/api/health`) needs `Authorization: Bearer <token>`. Missing/unknown token → `401`.
+- Cross-origin calls are allowed from any origin (the `.ehpk` runs inside the Even app): every call is authorised by
+  its bearer token, never by cookies. `CALLOUT_CORS_ORIGINS` narrows the list if needed.
+- **The `.ehpk` with no link** (real glasses) calls `POST /api/sandbox` itself, remembers that it owns the session,
+  shows a `/pair` code on its home screen, and sends `POST /api/judge/sample` when the wearer taps on home. On a `401`
+  it starts a fresh session. A session handed over by a `/try` link (`?s=`) is never replaced or re-paired by the glasses.
 - The glasses app reads the token from the URL (`/glasses/?s=<token>`) on first load, stores it, and sends it on every call.
 - The owner token comes from `CALLOUT_OWNER_TOKEN` (backend env). Locally, with no token configured, the backend accepts
   token-less requests from 127.0.0.1 as the owner (keeps `npm run dev` and all existing scripts working).
