@@ -397,9 +397,10 @@ function cardLabel(c: CardLite) {
   return c.symbol ? `${(c.side ?? '').toUpperCase()} ${c.symbol}` : 'message'
 }
 
-/** Shown while free hosting wakes the backend up, so nobody thinks the page is stuck. */
+/** Shown only if the backend hasn't answered within ~1 s, so nobody thinks the page is stuck. */
 function WakeUp({ seconds }: { seconds: number }) {
-  const pct = Math.min(96, (seconds / 50) * 100) // most wake-ups take 30-50 s
+  const slow = seconds >= 15
+  const pct = Math.min(96, (seconds / 15) * 100)
   return (
     <motion.section
       className="wrap inner"
@@ -410,12 +411,11 @@ function WakeUp({ seconds }: { seconds: number }) {
     >
       <div className="wake">
         <div className="wake-screen">
-          <pre>{`CALLOUT · waking up the server${'.'.repeat((seconds % 3) + 1)}\n\nFree hosting naps when nobody is around.\nUsually ready in 30-50 s · ${seconds} s so far`}</pre>
+          <pre>{`CALLOUT · connecting to the server${'.'.repeat((seconds % 3) + 1)}\n\n${slow ? 'Taking longer than usual.\nCheck your connection, or reload the page.' : 'This usually takes a few seconds.'}\n${seconds} s so far`}</pre>
           <div className="wake-bar"><i style={{ width: `${pct}%` }} /></div>
         </div>
         <p className="t-small wake-note">
-          The page continues by itself once the backend answers. Nothing to click. If you were here before, your sandbox
-          starts fresh.
+          The page continues by itself once the server answers. Nothing to click.
         </p>
       </div>
     </motion.section>

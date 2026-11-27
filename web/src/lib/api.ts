@@ -5,7 +5,7 @@ export const MOCK = new URLSearchParams(location.search).get('mock') === '1' // 
 export const API = ((import.meta.env.VITE_CALLOUT_API as string | undefined) ?? '').replace(/\/$/, '')
 
 /**
- * Free hosting puts the backend to sleep when idle; the first request wakes it (~30-50 s).
+ * Waits until the backend answers /api/health (normally at once; covers a restart or redeploy).
  * Resolves once /api/health answers; reports elapsed seconds while waiting.
  */
 /** Thrown when the owner has paused the public judge mode (backend kill switch). */
