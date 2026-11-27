@@ -17,7 +17,7 @@
   <a href="#proof-one-real-order-three-places"><img alt="Proof" src="https://img.shields.io/badge/proof-same%20order%20ID%20in%203%20places-D8920F?style=flat-square"></a>
   <a href="#accuracy"><img alt="Unsafe one-tap cards" src="https://img.shields.io/badge/unsafe%20one--tap%20cards-0%20%2F%20269-C93D25?style=flat-square"></a>
   <a href="#voice"><img alt="Risky voice misfires" src="https://img.shields.io/badge/risky%20voice%20misfires-0%20%2F%20180-F5A524?style=flat-square"></a>
-  <a href="#setup"><img alt="Unit tests" src="https://img.shields.io/badge/unit%20tests-78-1F2A44?style=flat-square"></a>
+  <a href="#setup"><img alt="Unit tests" src="https://img.shields.io/badge/unit%20tests-79-1F2A44?style=flat-square"></a>
   <a href="#business"><img alt="Track" src="https://img.shields.io/badge/track-03%20Exchanges%20%26%20Stocks-1F6FB8?style=flat-square"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-all%20rights%20reserved-5B6478?style=flat-square"></a>
 </p>
@@ -48,7 +48,7 @@ Callout reads the Telegram trade-call groups you choose. It checks each call aga
 | **Who it's for** | Active crypto traders who follow Telegram call groups and trade on Bybit |
 | **Built with** | Even Hub SDK + simulator · grammY (Telegram bot) · Claude Haiku 5.5 (extraction only) · ElevenLabs Scribe (speech-to-text) · Bybit V5 API (Demo for orders, mainnet for prices) · Fastify · SQLite |
 | **Status** | Works end to end in the Even Hub simulator and **live at [callout-production-049324a2.up.railway.app](https://callout-production-049324a2.up.railway.app)**: a live Telegram call, adjusted by voice, placed on Bybit Demo from the glasses, with the receipt back in the group |
-| **Measured** | 0 unsafe one-tap cards in 269 labeled messages · 0 risky misfires in 180 spoken commands (6 accents) · 78 unit tests · see [Accuracy](#accuracy) and [Voice](#voice) |
+| **Measured** | 0 unsafe one-tap cards in 269 labeled messages · 0 risky misfires in 180 spoken commands (6 accents) · 79 unit tests · see [Accuracy](#accuracy) and [Voice](#voice) |
 
 ---
 
@@ -272,7 +272,7 @@ npm run eval         # labeled-set accuracy (about 260 Haiku calls, a few cents)
 npm run eval:voice   # voice accuracy, 180 utterances in 6 accents (macOS)
 npm run positions    # list demo positions;  -- --close  closes them reduce-only
 npm run judges -- pause   # hosted kill switch for "Try it live" (also: resume, status)
-cd ../glasses && npm test   # 18 tests (speech detection, browser-preview bridge, token + API base)
+cd ../glasses && npm test   # 19 tests (speech detection, browser-preview bridge, token + API base)
 ```
 
 ### Package for Even Hub (`.ehpk`)

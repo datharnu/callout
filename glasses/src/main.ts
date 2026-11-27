@@ -131,6 +131,7 @@ function render() {
     }
     shownKey = key
     shownAt = Date.now()
+    bridge.focus?.(c && key !== 'home' && key !== 'boot' && key !== 'auth' ? { id: c.id, state: c.state } : null)
   }
   void setMic(!!c && VOICE_STATES.includes(c.state))
   if (content !== lastContent) {

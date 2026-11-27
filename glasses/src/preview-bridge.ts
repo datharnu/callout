@@ -6,6 +6,7 @@ import type { Bridge, GlassesEvent } from './bridge'
 export type PreviewMessage =
   | { type: 'callout:display'; content: string }
   | { type: 'callout:mic'; on: boolean }
+  | { type: 'callout:focus'; id: string | null; state: string | null } // which card is on screen
 
 type Incoming = { type: 'callout:input'; action: string } | { type: 'callout:audio'; pcm: ArrayBuffer | ArrayBufferView }
 
@@ -80,6 +81,9 @@ export class PreviewBridge implements Bridge {
   async audioControl(on: boolean) {
     this.deps.post({ type: 'callout:mic', on })
     return true
+  }
+  focus(card: { id: string; state: string } | null) {
+    this.deps.post({ type: 'callout:focus', id: card?.id ?? null, state: card?.state ?? null })
   }
   async shutdown() {
     this.deps.post({ type: 'callout:display', content: 'CALLOUT · closed\n\nReload the page to start again' })

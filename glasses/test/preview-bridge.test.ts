@@ -41,6 +41,16 @@ test('display text and mic state go to the parent', async () => {
   ])
 })
 
+test('the card on screen is reported to the parent (so its buttons match the glasses)', () => {
+  const { b, sent } = setup()
+  b.focus({ id: 'c1', state: 'ready' })
+  b.focus(null)
+  assert.deepEqual(sent, [
+    { type: 'callout:focus', id: 'c1', state: 'ready' },
+    { type: 'callout:focus', id: null, state: null },
+  ])
+})
+
 test('input actions map to the same events the SDK produces', () => {
   const { got, send } = setup()
   for (const action of ['click', 'double_click', 'up', 'down']) send({ type: 'callout:input', action })

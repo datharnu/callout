@@ -27,13 +27,97 @@ export function Landing() {
 }
 
 /* ── hero ─────────────────────────────────────────────────────────────── */
-const BUILT_WITH = ['Even Realities G2', 'Telegram', 'Bybit', 'Claude', 'ElevenLabs']
+/* What Callout is built with, shown twice (each mark is the service's own logo; sources and changes in
+   public/brand/partners/SOURCES.md):
+   1. under the hero buttons: a small static row, each item linking to the section that shows how Callout uses it;
+   2. under the hero window: a caption and a slow logo ticker. */
+const BUILT_WITH: { id: string; name: string; icon: string; href: string; wordmark?: string; wordmarkH?: number }[] = [
+  { id: 'even', name: 'Even Realities G2', icon: '/brand/partners/even-realities-icon.svg', href: '#how', wordmark: '/brand/partners/even-realities.svg', wordmarkH: 15 },
+  { id: 'telegram', name: 'Telegram', icon: '/brand/partners/telegram.svg', href: '#how' },
+  { id: 'bybit', name: 'Bybit', icon: '', href: '#proof', wordmark: '/brand/partners/bybit.png', wordmarkH: 20 },
+  { id: 'claude', name: 'Claude', icon: '/brand/partners/claude.svg', href: '#safety' },
+  { id: 'elevenlabs', name: 'ElevenLabs', icon: '/brand/partners/elevenlabs.svg', href: '#voice' },
+]
+
+function BuiltWithRow() {
+  return (
+    <nav className="built-row" aria-label="Built with">
+      <span className="built-row-label">Built with</span>
+      <ul>
+        {BUILT_WITH.map(b => (
+          <li key={b.id}>
+            <a href={b.href} className="built-row-item" title={`${b.name}: how Callout uses it`}>
+              {b.icon
+                ? <><img src={b.icon} alt="" className="built-row-logo" /><span>{b.name}</span></>
+                : <img src={b.wordmark} alt={b.name} className="built-row-wordmark" />}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}
+
+const TICKER_SPEED = 40 // px per second, leftwards
+const TICKER_HOVER = 0.4 // runs at 40% while hovered
+
+function LogoTicker() {
+  const track = useRef<HTMLDivElement>(null)
+  const first = useRef<HTMLDivElement>(null)
+  const hovered = useRef(false)
+  useEffect(() => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let x = 0
+    let last = performance.now()
+    let raf = 0
+    const step = (t: number) => {
+      const dt = Math.min(t - last, 100)
+      last = t
+      const el = track.current, set = first.current
+      if (el && set) {
+        const loop = set.offsetWidth + parseFloat(getComputedStyle(el).columnGap || '0')
+        x -= (TICKER_SPEED * (hovered.current ? TICKER_HOVER : 1) * dt) / 1000
+        if (loop > 0 && x <= -loop) x += loop
+        el.style.transform = `translateX(${x}px)`
+      }
+      raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  const set = (copy: number) => (
+    <div className="mark-set" ref={copy === 0 ? first : undefined} aria-hidden={copy > 0 || undefined}>
+      {BUILT_WITH.map(b => (
+        <div key={b.id} className="mark">
+          {b.wordmark
+            ? <img src={b.wordmark} alt={copy > 0 ? '' : b.name} style={{ height: b.wordmarkH }} />
+            : <><img src={b.icon} alt="" style={{ height: 20 }} /><span className="mark-name">{b.name}</span></>}
+        </div>
+      ))}
+    </div>
+  )
+  return (
+    <div className="logo-row">
+      <p className="logo-row-caption">Built with Even Realities G2, Telegram, Bybit, Claude and ElevenLabs</p>
+      <div className="marks" onMouseEnter={() => (hovered.current = true)} onMouseLeave={() => (hovered.current = false)}>
+        <div className="mark-track" ref={track}>{set(0)}{set(1)}</div>
+      </div>
+    </div>
+  )
+}
 
 function Hero() {
   return (
     <section className="hero">
       <div className="wrap inner hero-copy">
-        <Reveal><span className="pill"><b>G2</b>Built for Even Realities G2 · Heads Up hackathon</span></Reveal>
+        <Reveal>
+          <span className="pill pill-er">
+            <span className="ink-2">Built for</span>
+            <img src="/brand/partners/even-realities.svg" alt="Even Realities" className="er-mark" />
+            <b>G2</b>
+            <span className="ink-2">· Heads Up hackathon</span>
+          </span>
+        </Reveal>
         <Reveal delay={0.05}>
           <h1 className="t-display hero-title">Checks the call<br />before you take it.</h1>
         </Reveal>
@@ -44,12 +128,11 @@ function Hero() {
           </p>
         </Reveal>
         <Reveal delay={0.15} className="hero-ctas">
-          <a className="btn btn-outline" href={VIDEO}><PlayIcon /> Watch the demo · 2:08</a>
+          <a className="btn btn-outline" href={VIDEO} target="_blank" rel="noreferrer"><PlayIcon /> Watch the demo · 2:08</a>
           <a className="btn btn-solid" href="/try/">Try it in your browser <Arrow /></a>
         </Reveal>
-        <Reveal delay={0.2} className="built-with">
-          <span className="t-mono ink-2">Built with</span>
-          {BUILT_WITH.map(b => <span key={b} className="built-item">{b}</span>)}
+        <Reveal delay={0.2}>
+          <BuiltWithRow />
         </Reveal>
       </div>
       <div className="wrap inner">
@@ -70,6 +153,7 @@ function Hero() {
           </div>
         </Lift>
         <p className="t-small hero-note">Every screen above is a real capture from the Even Hub simulator, from one live run.</p>
+        <LogoTicker />
       </div>
     </section>
   )
@@ -422,7 +506,7 @@ function Closing() {
       <div className="wrap inner" style={{ textAlign: 'center' }}>
         <Reveal><h2 className="t-h2">Checks the call <span className="ink-2">before you take it.</span></h2></Reveal>
         <Reveal delay={0.08} className="hero-ctas" >
-          <a className="btn btn-outline" href={VIDEO}><PlayIcon /> Watch the demo</a>
+          <a className="btn btn-outline" href={VIDEO} target="_blank" rel="noreferrer"><PlayIcon /> Watch the demo</a>
           <a className="btn btn-solid" href="/try/">Try it in your browser <Arrow /></a>
         </Reveal>
         <Reveal delay={0.12}><p className="t-small" style={{ marginTop: 18 }}><a href={GITHUB} target="_blank" rel="noreferrer">Source on GitHub</a> · Demo money only · Not financial advice</p></Reveal>

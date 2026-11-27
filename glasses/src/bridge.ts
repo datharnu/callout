@@ -22,6 +22,8 @@ export interface Bridge {
   audioControl(on: boolean): Promise<boolean>
   /** Leave the app (double-tap on home). */
   shutdown(): Promise<void>
+  /** Optional: tell a host page which card is on screen (browser preview only; the Even SDK has no use for it). */
+  focus?(card: { id: string; state: string } | null): void
 }
 
 /** Browser preview: only when there is no Even app host AND the page asked for it. */

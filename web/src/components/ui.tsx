@@ -20,7 +20,7 @@ export function Logo({ height = 26 }: { height?: number }) {
 }
 
 export const GITHUB = 'https://github.com/datharnu/callout'
-export const VIDEO = '/media/Callout-demo.mp4'
+export const VIDEO = 'https://youtu.be/EQE6fJ02oIU' // the demo on YouTube; opens in a new tab
 
 export function Nav({ cta = true }: { cta?: boolean }) {
   return (
@@ -36,7 +36,9 @@ export function Nav({ cta = true }: { cta?: boolean }) {
           <a href={GITHUB} target="_blank" rel="noreferrer">GitHub</a>
         </nav>
         <div className="nav-cta">
-          <a className="nav-quiet" href={VIDEO}>Watch the demo</a>
+          {cta
+            ? <a className="nav-quiet" href={VIDEO} target="_blank" rel="noreferrer">Watch the demo</a>
+            : <a className="btn btn-outline btn-sm nav-demo" href={VIDEO} target="_blank" rel="noreferrer"><span aria-hidden>▶</span> Watch the demo</a>}
           {cta && <a className="btn btn-solid btn-sm" href="/try/">Try it</a>}
         </div>
       </div>
@@ -60,7 +62,7 @@ export function Footer() {
           </div>
           <div>
             <div className="footer-h">For judges</div>
-            <a href="/try/">Try it in your browser</a><a href={VIDEO}>Demo video (2:08)</a><a href="/#proof">Proof</a><a href={GITHUB} target="_blank" rel="noreferrer">GitHub</a>
+            <a href="/try/">Try it in your browser</a><a href={VIDEO} target="_blank" rel="noreferrer">Demo video (2:08)</a><a href="/#proof">Proof</a><a href={GITHUB} target="_blank" rel="noreferrer">GitHub</a>
           </div>
         </div>
       </div>

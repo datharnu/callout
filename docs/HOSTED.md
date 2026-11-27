@@ -33,7 +33,7 @@ sandbox is configured from `.env` (allowlisted Telegram group + senders), exactl
 | POST | `/api/cards/:id/voice` | raw 16 kHz s16le mono PCM (`application/octet-stream`) | `{ heard, commands, note, navigate?, card }` |
 | POST | `/api/judge/sample` | `{ kind }`, kind ∈ `clean`, `scam`, `impostor`, `vague`, `far`, `holding`, `chatter` | the ingest result (`{ outcome, card? , reason? }`) |
 | POST | `/api/pair` | | `{ code, expiresAt, group: { title, inviteUrl? } }`: a 6-digit code for this sandbox |
-| GET | `/api/pair` | | `{ linked: boolean, telegram?: string }` |
+| GET | `/api/pair` | | `{ linked: boolean, telegram?: string, group: { title, inviteUrl? }, example?: string }`: `example` is a ready-to-post call on the judge's own coin at its live price |
 
 Telegram: in the Callout group, a judge sends `/pair 123456`. The bot links that Telegram user to the sandbox. From then on,
 calls that user posts in the group become cards **in that sandbox only** (that user is the sandbox's allowlisted caller),
@@ -62,6 +62,7 @@ browser preview it is `postMessage` to the parent page:
 |---|---|
 | glasses → parent | `{ type: 'callout:display', content: string }` (page created or text updated) |
 | glasses → parent | `{ type: 'callout:mic', on: boolean }` |
+| glasses → parent | `{ type: 'callout:focus', id: string \| null, state: string \| null }` (the card on screen; the page's buttons follow it) |
 | parent → glasses | `{ type: 'callout:input', action: 'click' \| 'double_click' \| 'up' \| 'down' }` |
 | parent → glasses | `{ type: 'callout:audio', pcm: ArrayBuffer }` (16 kHz s16le mono, any frame size) |
 

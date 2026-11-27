@@ -84,9 +84,13 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}, ret
   if (init.body && !headers.has('content-type')) headers.set('content-type', 'application/json')
   const r = await fetch(`${API}${path}`, { ...init, headers })
   if (r.status === 401 && retry && !MOCK) {
-    localStorage.removeItem(KEY)
-    current = null
-    await ensureSandbox(true)
+    // Only the first request that finds this token dead replaces it. Others that were in flight with the
+    // same old token reuse the replacement instead of each starting a new session (which burned the limit).
+    if (current?.token === sb.token) {
+      localStorage.removeItem(KEY)
+      current = null
+      await ensureSandbox(true)
+    } else await ensureSandbox()
     return api<T>(path, init, false)
   }
   const body = (await r.json().catch(() => ({}))) as { error?: string }
@@ -102,6 +106,11 @@ export interface CardLite {
   sizeUsd: number; userStop: number | null; order: { orderId: string; avgPrice?: string; qty: string; kind: string } | null
   voice: { heard: string; message: string; at: number } | null
   notice?: string | null
+  // Also sent by the backend (cardView); used by the /try session panel.
+  action?: 'open' | 'close'; sender?: string; chat?: string; kind?: string
+  entry?: number | null; stop?: number | null; targets?: number[]; rr?: number | null
+  livePrice?: number | null; distancePct?: number | null; countdownEndsAt?: number | null; error?: string | null
+  record?: { seen: number; tp: number; sl: number; open: number; synthetic?: boolean } | null
 }
 export interface StateLite { now: number; session: { muted: number; forYou: number; expired: number; last: string }; cards: CardLite[] }
 export interface PairStart { code: string; expiresAt: number | string; command?: string; group?: { title?: string; inviteUrl?: string } }
