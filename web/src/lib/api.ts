@@ -8,14 +8,24 @@ export const API = ((import.meta.env.VITE_CALLOUT_API as string | undefined) ?? 
  * Free hosting puts the backend to sleep when idle; the first request wakes it (~30-50 s).
  * Resolves once /api/health answers; reports elapsed seconds while waiting.
  */
+/** Thrown when the owner has paused the public judge mode (backend kill switch). */
+export class PausedError extends Error {}
+const PAUSED_TEXT = 'Try it live is paused right now. Please watch the demo video, or check back later.'
+
 export async function waitForServer(onWaiting: (seconds: number) => void, maxMs = 150_000): Promise<void> {
   if (MOCK) return
   const t0 = Date.now()
   while (Date.now() - t0 < maxMs) {
     try {
       const r = await fetch(`${API}/api/health`, { signal: AbortSignal.timeout(8000), cache: 'no-store' })
-      if (r.ok) return
-    } catch {}
+      if (r.ok) {
+        const h = (await r.json().catch(() => ({}))) as { judges?: string }
+        if (h.judges === 'paused') throw new PausedError(PAUSED_TEXT)
+        return
+      }
+    } catch (e) {
+      if (e instanceof PausedError) throw e
+    }
     onWaiting(Math.round((Date.now() - t0) / 1000))
     await new Promise(r => setTimeout(r, 1500))
   }
@@ -49,6 +59,7 @@ export async function ensureSandbox(force = false): Promise<Sandbox> {
   else {
     const r = await fetch(`${API}/api/sandbox`, { method: 'POST' })
     if (r.status === 429) throw new LimitError('Too many new sessions from your network. Try again in a few minutes.')
+    if (r.status === 503) throw new PausedError(PAUSED_TEXT)
     if (!r.ok) throw new Error(`Could not start a session (${r.status})`)
     current = (await r.json()) as Sandbox
   }
@@ -72,6 +83,7 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}, ret
   }
   const body = (await r.json().catch(() => ({}))) as { error?: string }
   if (r.status === 429) throw new LimitError(body.error ?? 'You reached this sandbox’s limit for now. It resets soon.')
+  if (r.status === 503) throw new PausedError(body.error ?? PAUSED_TEXT)
   if (!r.ok) throw new Error(body.error ?? `Request failed (${r.status})`)
   return body as T
 }

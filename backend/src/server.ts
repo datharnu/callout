@@ -9,13 +9,14 @@ import { fileURLToPath } from 'node:url'
 import { config } from './config.js'
 import { ingest } from './pipeline.js'
 import { ActionError, cancel, confirm, dismiss, skip } from './executor.js'
-import { isActive } from './store.js'
+import { audit, isActive } from './store.js'
 import { handleVoice } from './voice/apply.js'
 import { filledOpensSince } from './db.js'
 import { startOfUtcDay } from './rules.js'
 import { hintFor } from './voice/commands.js'
 import { MAX_AUDIO_MS, pcmDurationMs } from './voice/stt.js'
 import { livePrice } from './market.js'
+import { judgesPaused, judgesPausedByEnv, PAUSED_MESSAGE, setJudgesPaused } from './pause.js'
 import { budgetLeft } from './budget.js'
 import {
   byTokenOrNull, coinFor, createJudge, demoAdminId, JUDGE, JUDGE_AUTO_CLOSE_MS, JUDGE_COINS, judgePositionOf, judgePositions, newPairCode, owner, ownerTokenConfigured,
@@ -156,13 +157,15 @@ export async function startServer() {
     // while no owner token is configured, counts as the owner (local dev and scripts).
     const sb = token ? byTokenOrNull(token) : !ownerTokenConfigured && isLocalDirect(req) ? owner : null
     if (!sb) return reply.code(401).send({ error: 'unknown or missing session token' })
+    if (sb.kind === 'judge' && judgesPaused()) return reply.code(503).send({ error: PAUSED_MESSAGE, paused: true })
     req.sandbox = sb
   })
 
-  app.get('/api/health', async () => ({ ok: true }))
+  app.get('/api/health', async () => ({ ok: true, judges: judgesPaused() ? 'paused' : 'open' }))
   if (webhookMode) registerTelegramWebhook(app)
 
   app.post('/api/sandbox', async (req, reply) => {
+    if (judgesPaused()) return reply.code(503).send({ error: PAUSED_MESSAGE, paused: true })
     const ip = clientIp(req)
     const hourAgo = Date.now() - 3_600_000
     const recent = (sandboxCreations.get(ip) ?? []).filter(t => t > hourAgo)
@@ -174,6 +177,20 @@ export async function startServer() {
     } catch (e) {
       return fail(reply, e)
     }
+  })
+
+  // Owner-only kill switch for judge mode (see pause.ts).
+  app.get('/api/admin/judges', async (req, reply) => {
+    if (req.sandbox.kind !== 'owner') return reply.code(403).send({ error: 'owner only' })
+    return { paused: judgesPaused(), forcedByEnv: judgesPausedByEnv(), openJudgePositions: judgePositions.size }
+  })
+  app.post('/api/admin/judges', async (req, reply) => {
+    if (req.sandbox.kind !== 'owner') return reply.code(403).send({ error: 'owner only' })
+    const paused = (req.body as { paused?: unknown } | undefined)?.paused
+    if (typeof paused !== 'boolean') return reply.code(400).send({ error: 'body must be { paused: true | false }' })
+    setJudgesPaused(paused)
+    audit('judges_paused', { paused })
+    return { paused: judgesPaused(), forcedByEnv: judgesPausedByEnv(), openJudgePositions: judgePositions.size }
   })
 
   app.get('/api/state', async req => stateView(req.sandbox))

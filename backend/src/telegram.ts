@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify'
 import { requireEnv } from './env.js'
 import { ingest } from './pipeline.js'
 import { linkedTo, owner, redeemPairCode } from './sandbox.js'
+import { judgesPaused } from './pause.js'
 import { audit } from './store.js'
 import { config } from './config.js'
 import type { Card, IncomingMessage } from './types.js'
@@ -40,6 +41,12 @@ export const group: { title: string; inviteUrl?: string } = { title: '', inviteU
 async function handlePair(ctx: Context, msg: IncomingMessage): Promise<boolean> {
   const m = msg.text.trim().match(/^\/pair(?:@\w+)?\s+(\d{6})\b/i)
   if (!m || !config.allowedChatIds.has(msg.chatId)) return false
+  if (judgesPaused()) {
+    await ctx.reply('Callout judge sessions are paused right now. Please check back later.', {
+      reply_parameters: { message_id: msg.messageId, allow_sending_without_reply: true },
+    }).catch(() => {})
+    return true
+  }
   const sb = redeemPairCode(m[1]!, msg.senderId, msg.senderName)
   audit('pair', { chatId: msg.chatId, senderId: msg.senderId, ok: !!sb, sandbox: sb?.id })
   await ctx.reply(
@@ -57,7 +64,7 @@ function handle(edited: boolean) {
     if (!msg) return
     if (!edited && (await handlePair(ctx, msg))) return
     // The owner's sandbox sees every message (its allowlist decides), plus any judge session linked to the sender.
-    for (const sb of [owner, ...linkedTo(msg.senderId)]) {
+    for (const sb of [owner, ...(judgesPaused() ? [] : linkedTo(msg.senderId))]) {
       const r = await ingest(msg, sb)
       if (r.outcome === 'card') {
         console.log(`[card] ${sb.id} ${r.card.id} ${r.card.state}${r.card.flags.length ? ` (${r.card.flags.join(', ')})` : ''}`)

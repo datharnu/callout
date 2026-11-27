@@ -25,7 +25,7 @@ sandbox is configured from `.env` (allowlisted Telegram group + senders), exactl
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| GET | `/api/health` | | `{ ok: true }` |
+| GET | `/api/health` | | `{ ok: true, judges: "open" \| "paused" }` |
 | POST | `/api/sandbox` | | `{ token, sandboxId, expiresAt }` |
 | GET | `/api/state` | | same shape as today (`now`, `session`, `cards[]`), scoped to the sandbox |
 | GET | `/api/settings` | | sizes, rules, `tradesToday` for this sandbox, `limits` (remaining judge quotas) |
@@ -48,6 +48,10 @@ and receipts reply in the group. Unpaired senders are ignored, as before.
 - Per sandbox: 3 orders per day, 30 sample calls per hour, 40 voice commands per hour.
 - Global daily ceilings on parser (LLM) and speech-to-text calls; when reached, cards say so and taps still work.
 - Order size for judge sandboxes: $100 (half size $50 refused if below the exchange minimum, as today).
+- **Kill switch** (owner only): `GET/POST /api/admin/judges` `{ paused: boolean }`, or `npm run judges -- pause | resume | status`.
+  While paused, `POST /api/sandbox` and every judge-token call return `503 { error, paused: true }`, `/api/health` reports
+  `judges: "paused"` (the `/try` page then shows a notice and the video link), and Telegram `/pair` and judge routing stop.
+  The flag file lives next to the SQLite DB, so it survives restarts. `CALLOUT_JUDGES_PAUSED=1` forces it on.
 
 ## Browser preview bridge (iframe `/glasses/?s=<token>&preview=1` inside `/try`)
 

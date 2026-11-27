@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Footer, Nav, SplitHeading, Eyebrow, VIDEO } from '../components/ui'
 import { PageEnter, EASE } from '../components/motion'
 import {
-  ensureSandbox, getState, getSettings, LimitError, MOCK, onTokenChange, pairStatus, sendSample, startPair, waitForServer,
+  ensureSandbox, getState, getSettings, LimitError, MOCK, PausedError, onTokenChange, pairStatus, sendSample, startPair, waitForServer,
   type CardLite, type JudgeSettings, type PairStart, type SampleKind, type StateLite,
 } from '../lib/api'
 import { startMic, type MicHandle } from '../lib/mic'
@@ -25,6 +25,7 @@ interface LogLine { at: number; text: string; tone?: 'amber' | 'green' }
 export function Try() {
   const [token, setToken] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [paused, setPaused] = useState(false)
   const [waking, setWaking] = useState<number | null>(null) // seconds spent waking the backend, or null
   useEffect(() => {
     const off = onTokenChange(t => setToken(t))
@@ -37,6 +38,7 @@ export function Try() {
       .then(s => setToken(s.token))
       .catch(e => {
         setWaking(null)
+        setPaused(e instanceof PausedError)
         setErr(e instanceof Error ? e.message : String(e))
       })
     return () => void off()
@@ -57,7 +59,14 @@ export function Try() {
           </div>
         </section>
         <AnimatePresence>{waking !== null && !token && <WakeUp seconds={waking} />}</AnimatePresence>
-        {err && <div className="wrap inner"><div className="try-error">{err}</div></div>}
+        {err && (
+          <div className="wrap inner">
+            <div className="try-error">
+              {err}
+              {paused && <> <a href={VIDEO}>Watch the demo video</a>.</>}
+            </div>
+          </div>
+        )}
         {token && <Workbench token={token} />}
       </PageEnter>
       <Footer />
