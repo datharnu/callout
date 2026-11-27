@@ -17,7 +17,7 @@
   <a href="#proof-one-real-order-three-places"><img alt="Proof" src="https://img.shields.io/badge/proof-same%20order%20ID%20in%203%20places-D8920F?style=flat-square"></a>
   <a href="#accuracy"><img alt="Unsafe one-tap cards" src="https://img.shields.io/badge/unsafe%20one--tap%20cards-0%20%2F%20269-C93D25?style=flat-square"></a>
   <a href="#voice"><img alt="Risky voice misfires" src="https://img.shields.io/badge/risky%20voice%20misfires-0%20%2F%20180-F5A524?style=flat-square"></a>
-  <a href="#setup"><img alt="Unit tests" src="https://img.shields.io/badge/unit%20tests-65-1F2A44?style=flat-square"></a>
+  <a href="#setup"><img alt="Unit tests" src="https://img.shields.io/badge/unit%20tests-77-1F2A44?style=flat-square"></a>
   <a href="#business"><img alt="Track" src="https://img.shields.io/badge/track-03%20Exchanges%20%26%20Stocks-1F6FB8?style=flat-square"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-all%20rights%20reserved-5B6478?style=flat-square"></a>
 </p>
@@ -40,7 +40,7 @@
 
 Callout reads the Telegram trade-call groups you choose. It checks each call against the live market, the caller's track record and your own trading rules. Then it puts one card on your Even Realities G2 glasses. Tap once, or say "half size", "set stop 59.2k" or "skip", and the order goes to **Bybit Demo Trading**, with a cancel window, a real order ID on the glasses and a receipt posted back to Telegram.
 
-> Callout executes the user's own confirmed decision, never the group's advice. **Not financial advice.** Demo money only: orders go to Bybit Demo Trading, and no user funds are held.
+> Callout executes the user's own confirmed decision, never the group's advice. **Not financial advice.** Demo money only: orders go to Bybit Demo Trading, Bybit's paper-trading environment (virtual funds, real market prices), and no user funds are held.
 
 | | |
 |---|---|
@@ -48,7 +48,7 @@ Callout reads the Telegram trade-call groups you choose. It checks each call aga
 | **Who it's for** | Active crypto traders who follow Telegram call groups and trade on Bybit |
 | **Built with** | Even Hub SDK + simulator · grammY (Telegram bot) · Claude Haiku 5.5 (extraction only) · ElevenLabs Scribe (speech-to-text) · Bybit V5 API (Demo for orders, mainnet for prices) · Fastify · SQLite |
 | **Status** | Works end to end in the Even Hub simulator and **live at [callout-production-049324a2.up.railway.app](https://callout-production-049324a2.up.railway.app)**: a live Telegram call, adjusted by voice, placed on Bybit Demo from the glasses, with the receipt back in the group |
-| **Measured** | 0 unsafe one-tap cards in 269 labeled messages · 0 risky misfires in 180 spoken commands (6 accents) · 65 unit tests · see [Accuracy](#accuracy) and [Voice](#voice) |
+| **Measured** | 0 unsafe one-tap cards in 269 labeled messages · 0 risky misfires in 180 spoken commands (6 accents) · 77 unit tests · see [Accuracy](#accuracy) and [Voice](#voice) |
 
 ---
 
@@ -106,7 +106,7 @@ Callout runs in **session mode**: start a trading session, keep Callout open, an
 | Revenue line | How it works |
 |---|---|
 | **Pro subscription** for active traders | Free: one group, session mode, demo trading. Pro: more groups, your own rules, voice, and real-exchange execution once that is licensed (below). |
-| **Verified caller badges** | Callers apply for a public, verified record built only from calls Callout *saw*, so deleted losing calls still count. Good callers want proof; scammers can't fake it. Callers pay for the badge, traders get a trust signal. |
+| **Verified caller records (free, earned)** | A caller's public record is built only from calls Callout *saw*, so deleted losing calls still count. It is earned, never sold: a trust signal anyone can buy is exactly what scammers would buy. Callers get it free; the revenue stays with traders, who pay Pro for the checks that use it. |
 | **Exchange partnerships** | Callout already routes confirmed orders to an exchange API. With real execution, referral or revenue-share agreements with exchanges are a natural fit. |
 
 **Why it's defensible.** The record of calls Callout has observed grows with every user and group, and it can't be rebuilt after the fact: a caller's history is only verifiable from the moment someone was watching. More users means more groups observed, which means better records for everyone.
@@ -185,7 +185,7 @@ Voice is built for the moment you have a call card in front of you and your hand
 
 We also tested by speaking into the simulator through a laptop microphone. That live test is what led to multi-command sentences, the "wait for the price" behavior, the longer pre-roll and pause, and the conversation filter.
 
-Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). **This is a smoke test, not a benchmark:** 30 phrases spoken by synthetic voices. The next step is the real G2 microphone on a noisy street.
+Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). **This is a smoke test, not a benchmark:** 30 phrases spoken by synthetic voices, and the interpreter was tuned after seeing results on them (for example, speech-to-text keyterms were limited to safe words after "pass" was heard as "half size"). There is no held-out slice. The next step is the real G2 microphone on a noisy street.
 
 ## Safety
 
@@ -221,7 +221,7 @@ Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). *
 - Tradable calls shown as tradable: 23/23. Non-allowlisted senders muted: 6/6.
 - The misses are cautious ones: two scam-worded calls and one call with its stop on the wrong side were read as "unsure", which is never tradable.
 
-Full report: [`backend/eval/RESULTS.md`](backend/eval/RESULTS.md). **Caveat:** the set was written by the same team that wrote the parser prompt, so treat these numbers as a smoke test, not a benchmark.
+Full report: [`backend/eval/RESULTS.md`](backend/eval/RESULTS.md). **Caveat:** the set was written by the same team that wrote the parser prompt, and the parser was improved after seeing results on it. There is **no held-out slice**, so treat these numbers as a smoke test, not a benchmark.
 
 ## Caller track record (synthetic)
 
@@ -264,13 +264,13 @@ For each call Callout sees, it walks **Bybit mainnet 1-minute candles** from the
 
 ```bash
 cd backend
-npm test             # 53 unit tests (checks, track record, rules, voice commands)
+npm test             # 59 unit tests (checks, track record, rules, voice commands, judge sandboxes)
 npm run e2e:safety   # 12 live safety scenarios against the running backend (places no orders)
 npm run e2e:voice    # 17 spoken-command scenarios, real speech-to-text (macOS; places no orders)
 npm run eval         # labeled-set accuracy (about 260 Haiku calls, a few cents)
 npm run eval:voice   # voice accuracy, 180 utterances in 6 accents (macOS)
 npm run positions    # list demo positions;  -- --close  closes them reduce-only
-cd ../glasses && npm test   # 8 speech-detection (VAD) tests
+cd ../glasses && npm test   # 18 tests (speech detection, browser-preview bridge, token + API base)
 ```
 
 ### Package for Even Hub (`.ehpk`)
@@ -279,7 +279,7 @@ cd ../glasses && npm test   # 8 speech-detection (VAD) tests
 cd glasses && npm run pack   # typecheck + build + evenhub pack → glasses/callout.ehpk
 ```
 
-The package (about 40 KB, SDK 0.0.16, Even app 2.2.10+) contains only the glasses app: no keys, no backend. It talks to the Callout backend at `http://127.0.0.1:8787` (whitelisted in `app.json`), so today it works where the backend runs on the same machine, as in the simulator. Running it from a phone needs the hosted backend and pairing code on the [roadmap](#roadmap).
+The package (about 40 KB, SDK 0.0.16, Even app 2.2.10+) contains only the glasses app: no keys, no backend. This build talks to a Callout backend at `http://127.0.0.1:8787` (the only origin whitelisted in `app.json`), so it works where the backend runs on the same machine, as in the simulator. The hosted backend is already public and token-based ([Try it live](#try-it-live)), but the package isn't pointed at it yet: that takes a build with `VITE_CALLOUT_API=https://callout-production-049324a2.up.railway.app` and that origin added to the whitelist. To try Callout without any setup, use [`/try`](https://callout-production-049324a2.up.railway.app/try/) or open the hosted glasses app in the official simulator.
 
 ### Settings
 
@@ -299,12 +299,14 @@ backend/
     positions.ts    demo positions + reduce-only close
     bybit/          signed Demo client (refuses non-demo URLs) + mainnet public data
     telegram.ts     grammY bot: messages/edits in, receipts out
-    server.ts       HTTP API for the glasses (127.0.0.1 only)
+    server.ts       HTTP API + static site; bearer-token auth per sandbox
+    sandbox.ts      judge sandboxes, Telegram /pair, per-coin lanes, quotas
     db.ts           SQLite: calls + orders
     voice/          stt.ts (ElevenLabs Scribe), commands.ts (transcript → command), apply.ts
   eval/             labeled set + accuracy runner + RESULTS.md
   scripts/          Bybit smoke test, Telegram listener, e2e safety, seed, positions
   test/             unit tests
+web/                landing page + /try browser G2 preview (Vite + React)
 glasses/            Even Hub app (Vite + TypeScript): screens.ts renders, main.ts handles input + mic, vad.ts cuts utterances
 screenshots/        simulator captures
 ```
@@ -321,7 +323,8 @@ Nothing in this repository was written before Nov 23. The git history starts on 
 - **Simulator only.** Not yet tested on physical G2 hardware. Font rendering and input can differ on the real device.
 - **Bot, not user account.** The bot reads groups it has been added to. It can't read channels you follow but don't administer (Telegram user login via MTProto is on the roadmap).
 - **No background alerts.** Session mode only: Callout works while the app is open.
-- **Runs locally.** The API binds to `127.0.0.1` and has no pairing or authentication yet, so the backend and the simulator must run on the same machine. Public hosting needs pairing first.
+- **One owner per backend.** The hosted demo gives every visitor a sandbox with its own random token, and links Telegram with a one-time `/pair` code. The owner's own account is protected by a single owner token from `.env`. There are no user accounts or logins yet, so each real user would run their own backend.
+- **Judges share one Bybit Demo account.** Each judge trades their own coin, so positions never mix, but the account's demo balance is shared.
 - **Synthetic track record.** The demo record is invented (real prices, invented calls). Real records only count calls Callout saw.
 - **Demo money only.** Bybit Demo fills don't reflect real liquidity or slippage.
 - **Pending cards live in memory.** A backend restart drops cards waiting for a tap (they expire within 15 min anyway). Calls and orders persist in SQLite.
@@ -335,7 +338,7 @@ Nothing in this repository was written before Nov 23. The git history starts on 
 ## Roadmap
 
 1. **Physical G2 testing**, including voice on the glasses' mic with its speaker detection.
-2. **Pairing code + hosted backend**, so the glasses app connects to a user's own backend securely instead of `127.0.0.1`.
+2. **User accounts on the hosted backend**: sign-in, each user's own Bybit keys (encrypted), and their own groups, building on the per-session tokens and Telegram `/pair` that already run in the hosted demo.
 3. **Telegram user-account login** (MTProto) to read channels you follow but don't run.
 4. **Partial take-profit and multiple targets**: "secure 50%" on holding cards, all TPs attached to the order.
 5. **Verified caller records** built from real observed calls (replacing the synthetic demo data), shared across users who opt in.
