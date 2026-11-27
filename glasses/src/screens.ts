@@ -88,7 +88,11 @@ export function ownHomeScreen(s: StateView, ui: OwnSessionUi, offline: boolean):
 }
 
 function header(c: CardView, pos: string): string {
-  return `● ${clip(safe(c.sender), 22)} · allowlisted${c.edited ? ' · edited' : ''}${pos ? `   ${pos}` : ''}`
+  // A call the wearer sent from their private chat with the bot says so; group calls name the allowlisted caller.
+  const who = c.via === 'private'
+    ? c.sender === 'you' ? 'Sent by you from Telegram' : `${clip(safe(c.sender), 18)} · forwarded by you`
+    : `${clip(safe(c.sender), 22)} · allowlisted`
+  return `● ${who}${c.edited ? ' · edited' : ''}${pos ? `   ${pos}` : ''}`
 }
 
 /** Track record: counts and sample size, never a score. */

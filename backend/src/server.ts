@@ -42,7 +42,8 @@ export function cardView(c: Card) {
     state: c.state,
     edited: !!c.edited,
     sender: c.msg.senderName,
-    allowlisted: true, // only allowlisted senders ever produce cards
+    allowlisted: c.msg.via !== 'private', // group cards come only from allowlisted senders
+    via: c.msg.via ?? 'group', // 'private': the user sent it from their chat with the bot
     chat: c.msg.chatTitle,
     kind: p?.kind,
     symbol: p?.symbol ?? null,

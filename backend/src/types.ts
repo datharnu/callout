@@ -25,6 +25,7 @@ export interface IncomingMessage {
   sentAt: number // ms epoch (Telegram message date)
   editedAt?: number // ms epoch if this is an edit
   links?: string[] // link targets hidden behind text (Telegram text_link entities): checked like visible links
+  via?: 'private' // the user sent this call to their own glasses from their private chat with the bot ("Send to my glasses")
   source: 'telegram' | 'replay'
 }
 

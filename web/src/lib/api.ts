@@ -107,7 +107,7 @@ export interface CardLite {
   voice: { heard: string; message: string; at: number } | null
   notice?: string | null
   // Also sent by the backend (cardView); used by the /try session panel.
-  action?: 'open' | 'close'; sender?: string; chat?: string; kind?: string
+  action?: 'open' | 'close'; sender?: string; chat?: string; kind?: string; via?: 'group' | 'private'
   entry?: number | null; stop?: number | null; targets?: number[]; rr?: number | null
   livePrice?: number | null; distancePct?: number | null; countdownEndsAt?: number | null; error?: string | null
   record?: { seen: number; tp: number; sl: number; open: number; synthetic?: boolean } | null

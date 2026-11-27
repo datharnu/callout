@@ -9,7 +9,7 @@ import { judgesPaused } from './pause.js'
 import { audit } from './store.js'
 import { config } from './config.js'
 import type { Card, IncomingMessage } from './types.js'
-import { handlePrivate } from './tg-private.js'
+import { handleGlassesCallback, handlePrivate } from './tg-private.js'
 import { hiddenLinks } from './tg-util.js'
 import { notePairFailure, pairTriesLeft } from './pair-guard.js'
 
@@ -104,6 +104,7 @@ bot.use(async (ctx, next) => {
 
 bot.on(['message', 'channel_post'], handle(false))
 bot.on(['edited_message', 'edited_channel_post'], handle(true))
+bot.on('callback_query:data', handleGlassesCallback) // "Send to my glasses" under a private check
 bot.catch(err => console.error('[telegram] handler error:', err.error))
 
 /** Returns true only if a message was actually delivered to Telegram. */
@@ -124,7 +125,7 @@ export async function sendReceipt(card: Card): Promise<boolean> {
   return true
 }
 
-const ALLOWED = ['message', 'edited_message', 'channel_post', 'edited_channel_post'] as const
+const ALLOWED = ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'callback_query'] as const
 /** Webhook mode (free hosting that sleeps): Telegram calls us, which also wakes the server. */
 export const webhookMode = process.env.CALLOUT_TELEGRAM_MODE === 'webhook'
 const WEBHOOK_PATH = '/api/telegram/hook'

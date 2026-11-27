@@ -59,6 +59,7 @@ export interface CardView {
   edited: boolean
   sender: string
   allowlisted: boolean
+  via?: 'group' | 'private' // 'private': the wearer sent it from their chat with the bot
   chat: string
   kind?: string
   symbol: string | null

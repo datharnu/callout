@@ -434,7 +434,7 @@ function Checks({ card: c, quiet, countdownLeft, settings }: { card?: CardLite; 
     title = 'What Callout checked'
     lines = [
       `Read from the message: ${(c.side ?? '').toUpperCase()} ${coinOf(c)} · entry ${fmt(c.entry)} · stop ${fmt(c.stop)} · target ${fmt(c.targets?.[0])}`,
-      `${c.sender ?? 'The sender'} is on your caller list`,
+      c.via === 'private' ? `You sent this from your private chat with the bot${c.sender && c.sender !== 'you' ? ` (originally from ${c.sender})` : ''}` : `${c.sender ?? 'The sender'} is on your caller list`,
       c.livePrice ? `Live Bybit price ${c.livePrice} · ${Math.abs(c.distancePct ?? 0).toFixed(1)}% from the entry` : 'Live Bybit price read',
       c.record?.seen ? `Caller record: ${c.record.seen} calls seen · ${c.record.tp} reached target · ${c.record.sl} hit stop (synthetic)` : 'Caller record: no earlier calls from this sender',
       `If placed: $${c.sizeUsd} on Bybit Demo, with the stop and target attached`,
@@ -604,7 +604,7 @@ function TelegramRow({ push }: { push: (t: string, tone?: LogLine['tone']) => vo
         <span className="row-preview">{linked ? 'Post a call in the group' : 'Send a real call from your phone'}</span>
       </summary>
       <p className="t-small" style={{ marginBottom: 8 }}>Post a trade call in our Telegram group and it shows up on these glasses, like a real call would.</p>
-      <p className="t-small tg-dm">Or check any call privately: forward it to <a className="link" href="https://t.me/callout8_bot" target="_blank" rel="noreferrer">@callout8_bot</a> and it replies with what it read, the live price and any scam signs. Read-only. Once paired, ask it for <code>/summary</code>, <code>/rules</code>, <code>/setrule maxTradesPerDay 1</code> and <code>/audit</code>.</p>
+      <p className="t-small tg-dm">Or check any call privately: forward it to <a className="link" href="https://t.me/callout8_bot" target="_blank" rel="noreferrer">@callout8_bot</a> and it replies with what it read, the live price and any scam signs. Once paired, a <b>Send to my glasses</b> button puts that call here. Also ask it for <code>/summary</code>, <code>/rules</code>, <code>/setrule maxTradesPerDay 1</code> and <code>/audit</code>.</p>
       <ol className="tg-steps">
         <li className={linked ? 'done' : 'now'}>
           <span className="tg-n">1</span>

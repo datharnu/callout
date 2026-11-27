@@ -20,7 +20,7 @@ On the same page, open **Connect your Telegram**:
 2. **Join the group** ("Open A'ska & Callout").
 3. Post the example call shown on the page in the group. It appears on the glasses; tap to place it, and the receipt replies under your message in the group.
 
-**Also try a private chat with the bot** ([@callout8_bot](https://t.me/callout8_bot)): forward it any trade call and it replies privately with what it read, how far the live price is, any scam signs and the caller's record. Once paired, your session's rules live there too:
+**Also try a private chat with the bot** ([@callout8_bot](https://t.me/callout8_bot)): forward or paste any trade call and it replies privately with what it read, how far the live price is, any scam signs and the caller's record. Once paired, the reply has a **📲 Send to my glasses** button: tap it and the call appears on the glasses on `/try`, ready to place with a tap there. Your session's rules live in that chat too:
 
 - `/summary`: your calls today, what was blocked and why, your orders
 - `/rules`: the rules checked in code before every order

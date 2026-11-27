@@ -7,7 +7,10 @@
 //                              orders-per-day limit, never above the judge cap)
 //   /audit                   → your last decisions (owner, or a paired judge's own session)
 import type { Context } from 'grammy'
-import { checkOnly } from './pipeline.js'
+import { checkOnly, ingest } from './pipeline.js'
+import { randomBytes } from 'node:crypto'
+import { takeQuota } from './sandbox.js'
+import type { IncomingMessage } from './types.js'
 import { config } from './config.js'
 import { JUDGE, linkedTo, owner, ownerTelegramId, OWNER_SETTING_LIMITS, redeemPairCode, setOwnerSetting, type Sandbox } from './sandbox.js'
 import { judgesPaused } from './pause.js'
@@ -93,7 +96,72 @@ export async function handlePrivate(ctx: Context): Promise<void> {
   const from = forwardOrigin(ctx)
   audit('private_check', { userId, forwardedFrom: from.id ?? null })
   await ctx.replyWithChatAction('typing').catch(() => {})
-  await ctx.reply(await checkText(text, from, ctx.msg ? hiddenLinks(ctx.msg) : []), { reply_parameters: { message_id: ctx.msg!.message_id, allow_sending_without_reply: true } })
+  const links = ctx.msg ? hiddenLinks(ctx.msg) : []
+  const check = await checkText(text, from, links)
+  const sb = sessionOf(userId)
+  let body = check.text
+  let markup: { inline_keyboard: { text: string; callback_data: string }[][] } | undefined
+  if (check.sendable && sb) {
+    // The next step, one tap away: put this call on the wearer's own glasses (where every check runs again
+    // and only a tap on the glasses places anything). Pasting alone never sends anything.
+    const id = randomBytes(6).toString('base64url')
+    pending.set(id, { userId, text, sentAt: from.at ?? (ctx.msg!.date * 1000), from, links, chatId: String(ctx.chat!.id), messageId: ctx.msg!.message_id, at: Date.now() })
+    markup = { inline_keyboard: [[{ text: '📲 Send to my glasses', callback_data: `g:${id}` }]] }
+  } else if (check.sendable) {
+    body += '\n\nTo put calls like this on your glasses: pair on the Try page (Connect your Telegram → Pair in one tap).'
+  }
+  await ctx.reply(body, { reply_parameters: { message_id: ctx.msg!.message_id, allow_sending_without_reply: true }, ...(markup ? { reply_markup: markup } : {}) })
+}
+
+// ── "Send to my glasses" ──────────────────────────────────────────────────────────────────────────
+interface Pending { userId: string; text: string; sentAt: number; from: { id?: string; name?: string }; links: string[]; chatId: string; messageId: number; at: number }
+const pending = new Map<string, Pending>()
+const sentIds = new Set<string>() // already sent: a second tap says so instead of "expired"
+const PENDING_MS = 15 * 60_000 // as long as a call stays fresh
+
+/** The button under a check: send that call to the wearer's own glasses session, once. */
+export async function handleGlassesCallback(ctx: Context): Promise<void> {
+  const data = ctx.callbackQuery?.data ?? ''
+  if (!data.startsWith('g:')) return
+  const id = data.slice(2)
+  const p = pending.get(id)
+  const userId = String(ctx.from?.id ?? '')
+  const answer = (text: string) => ctx.answerCallbackQuery({ text, show_alert: text.length > 60 }).catch(() => {})
+  for (const [k, v] of pending) if (Date.now() - v.at > PENDING_MS) pending.delete(k)
+  if (sentIds.has(id)) return void (await answer('Already sent to your glasses.'))
+  if (!p || Date.now() - p.at > PENDING_MS) return void (await answer('This check has expired. Paste the call again.'))
+  if (p.userId !== userId) return void (await answer('Only the person who asked can send this.'))
+  const sb = sessionOf(userId)
+  if (!sb) return void (await answer('Pair first: Try page → Connect your Telegram → Pair in one tap.'))
+  if (sb.kind === 'judge' && judgesPaused()) return void (await answer('Callout judge sessions are paused right now.'))
+  if (!takeQuota(sb, 'samples')) return void (await answer('You have sent the most calls allowed this hour. Try again later.'))
+  pending.delete(id) // single use: one tap, one card
+  sentIds.add(id)
+  if (sentIds.size > 5000) sentIds.delete(sentIds.values().next().value!)
+  const msg: IncomingMessage = {
+    chatId: p.chatId,
+    chatTitle: 'Private chat',
+    messageId: p.messageId, // the receipt replies to the user's own message here
+    senderId: p.from.id ?? userId,
+    senderName: p.from.name ?? 'you',
+    text: p.text,
+    sentAt: p.sentAt,
+    ...(p.links.length ? { links: p.links } : {}),
+    source: 'telegram',
+    via: 'private',
+  }
+  const r = await ingest(msg, sb)
+  audit('sent_to_glasses', { userId, sandbox: sb.id, outcome: r.outcome, ...(r.outcome === 'card' ? { card: r.card.id, state: r.card.state } : {}) })
+  const result = r.outcome === 'card'
+    ? r.card.state === 'ready'
+      ? 'On your glasses now: review it, then tap the glasses to place it (5 s to cancel).'
+      : r.card.state === 'holding'
+        ? 'On your glasses now: tap the glasses to close your position (reduce-only).'
+        : `On your glasses now, ${r.card.state}${r.card.flags.length ? `: ${r.card.flags.slice(0, 2).join(' · ')}` : ''}.`
+    : `Not sent: ${r.reason}.`
+  await answer(r.outcome === 'card' ? 'Sent to your glasses' : 'Not sent')
+  const original = ctx.callbackQuery?.message && 'text' in ctx.callbackQuery.message ? ctx.callbackQuery.message.text ?? '' : ''
+  await ctx.editMessageText(`${original}\n\n📲 ${result}`).catch(() => {})
 }
 
 function pairHere(ctx: Context, userId: string, code: string): string {
@@ -124,7 +192,7 @@ function sessionOf(userId: string): Sandbox | undefined {
 }
 
 // ── forward-to-check ────────────────────────────────────────────────────────────────────────────
-async function checkText(text: string, from: { id?: string; name?: string; at?: number }, links: string[]): Promise<string> {
+async function checkText(text: string, from: { id?: string; name?: string; at?: number }, links: string[]): Promise<{ text: string; sendable: boolean }> {
   const now = Date.now()
   const r = await checkOnly(text, from.at ?? now, now, links)
   const out: string[] = ['Callout check · read-only, nothing was traded']
@@ -149,7 +217,9 @@ async function checkText(text: string, from: { id?: string; name?: string; at?: 
     out.push(`Caller: ${from.name ?? 'hidden'}${from.id ? (listed ? ' · on the caller list' : ' · not on the caller list (its calls are ignored)') : ''}${recText}`)
   }
   out.push('', NOT_ADVICE)
-  return out.join('\n')
+  // Anything that reads as a call (or a "taking profit" message) can go on to the glasses; chatter can't.
+  const sendable = r.kind === 'trade_call' || r.kind === 'holding_update' || (r.kind === 'unsure' && !!r.parsed?.symbol)
+  return { text: out.join('\n'), sendable }
 }
 
 // ── /summary ────────────────────────────────────────────────────────────────────────────────────

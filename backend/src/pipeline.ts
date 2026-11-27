@@ -38,8 +38,9 @@ export function gate(
 
 export async function ingest(msg: IncomingMessage, sb: Sandbox): Promise<IngestResult> {
   const { session, latestVersion, cards } = sb
-  // 1. Allowlist (this sandbox's chats and senders).
-  const g = gate(msg, sb.allow)
+  // 1. Allowlist (this sandbox's chats and senders). A call the user sent to their own glasses from their
+  //    private chat ("Send to my glasses") is theirs by definition: no allowlist, every check still runs.
+  const g = msg.via === 'private' ? { pass: true as const } : gate(msg, sb.allow)
   if (!g.pass) {
     if (g.outcome === 'muted') session.muted++
     return { outcome: g.outcome, reason: g.reason }
@@ -170,7 +171,7 @@ export async function positionInfo(sb: Sandbox, symbol: string): Promise<Positio
  */
 function recordCall(card: Card) {
   const p = card.parsed
-  if (card.msg.source !== 'telegram') return
+  if (card.msg.source !== 'telegram' || card.msg.via === 'private') return // a user's own forward isn't the caller's record
   if (!p || p.kind !== 'trade_call' || !p.symbol || !p.side || !p.entry || !p.stop || p.targets[0] === undefined) return
   insertCall({
     id: card.id,
