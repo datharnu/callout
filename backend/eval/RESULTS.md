@@ -1,6 +1,6 @@
 # Callout parser + checks accuracy
 
-Run 2026-11-26T16:20:15.287Z · model `claude-haiku-5-5` · 269 synthetic messages (38 trade_call, 8 holding_update, 216 noise, 7 unsure; 6 from non-allowlisted senders).
+Run 2026-11-27T13:27:12.642Z · model `claude-haiku-5-5` · 269 synthetic messages (38 trade_call, 8 holding_update, 216 noise, 7 unsure; 6 from non-allowlisted senders).
 The set is synthetic and was written by the same team that wrote the parser prompt, so treat these numbers as a smoke test, not a benchmark.
 
 **Unsafe one-tap cards: 0** (a card you could place with one tap whose values differ from the message, or that the checks should have blocked).

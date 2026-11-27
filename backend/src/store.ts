@@ -20,6 +20,9 @@ export function audit(event: string, data: Record<string, unknown>): void {
  */
 export const BOOT = Date.now().toString(36)
 
+/** A tap must name the card revision it saw; anything else means the values changed since (see executor.confirm). */
+export const staleTap = (card: Pick<Card, 'rev'>, rev: number | undefined): boolean => rev !== undefined && rev !== (card.rev ?? 0)
+
 export const messageKey = (chatId: string, messageId: number) => `${chatId}:${messageId}`
 
 export function setState(card: Card, state: Card['state'], extra: Partial<Card> = {}): void {

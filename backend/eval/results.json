@@ -59,7 +59,7 @@
         64500
       ],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.97,
       "quote": "#BTC LONG\nEntry: 60,450\nStop: 59,300\nTargets: 61,800 / 63,000 / 64,500"
     },
     "fields": {
@@ -93,7 +93,7 @@
         62800
       ],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.93,
       "quote": "Bitcoin long here 60500, stop 59.2k, tp 62.8k"
     },
     "fields": {
@@ -127,7 +127,7 @@
         58500
       ],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.93,
       "quote": "BTC short 60.6k sl 61.5k tp 58.5k"
     },
     "fields": {
@@ -196,7 +196,7 @@
         2520
       ],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": "ETH long 2400 SL 2330 TP 2520"
     },
     "fields": {
@@ -951,7 +951,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.7,
+      "confidence": 0.8,
       "quote": "Still holding the BTC long, TP1 hit"
     }
   },
@@ -976,7 +976,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.8,
+      "confidence": 0.6,
       "quote": "Cut the DOGE long, setup invalidated"
     }
   },
@@ -1001,7 +1001,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.6,
+      "confidence": 0.55,
       "quote": "LINK short: secure 50% now"
     }
   },
@@ -1051,7 +1051,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.5,
+      "confidence": 0.6,
       "quote": "Exit XRP now"
     }
   },
@@ -1137,7 +1137,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -1190,7 +1190,7 @@
         2600
       ],
       "leverage": null,
-      "confidence": 0.3,
+      "confidence": 0.4,
       "quote": "ETH long 2400 sl 2350 tp 2600"
     }
   },
@@ -1271,12 +1271,12 @@
       "symbol": "BTCUSDT",
       "side": "long",
       "entry": 60500,
-      "stop": 0,
+      "stop": null,
       "targets": [
         1000000
       ],
       "leverage": null,
-      "confidence": 0.1,
+      "confidence": 0.2,
       "quote": "LONG BTC entry 60.5k, stop 0, target 1000k"
     }
   },
@@ -1376,7 +1376,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0,
       "quote": ""
     }
   },
@@ -1487,7 +1487,7 @@
         63000
       ],
       "leverage": null,
-      "confidence": 0.8,
+      "confidence": 0.85,
       "quote": "LONG BTC entry 60.4k SL 59.2k TP 63k"
     },
     "fields": {
@@ -1615,7 +1615,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.2,
+      "confidence": 0.15,
       "quote": ""
     }
   },
@@ -1640,7 +1640,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.2,
+      "confidence": 0.25,
       "quote": "ETH: entry 2400ish maybe lower, stop wherever you feel"
     }
   },
@@ -1661,11 +1661,13 @@
       "kind": "unsure",
       "symbol": "SOLUSDT",
       "side": null,
-      "entry": null,
-      "stop": null,
-      "targets": [],
+      "entry": 140,
+      "stop": 134,
+      "targets": [
+        148
+      ],
       "leverage": null,
-      "confidence": 0.2,
+      "confidence": 0.3,
       "quote": "SOL 140 134 148"
     }
   },
@@ -1767,7 +1769,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -1861,14 +1863,14 @@
     "unsafe": false,
     "parsed": {
       "kind": "holding_update",
-      "symbol": null,
+      "symbol": "BTCUSDT",
       "side": null,
       "entry": 60400,
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.4,
-      "quote": "My entry was 60.4k btw, still holding (not a new signal)"
+      "confidence": 0.45,
+      "quote": "My entry was 60.4k btw, still holding"
     }
   },
   {
@@ -2092,7 +2094,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.3,
+      "confidence": 0.2,
       "quote": ""
     }
   },
@@ -2192,7 +2194,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.8,
+      "confidence": 0.2,
       "quote": ""
     }
   },
@@ -2292,7 +2294,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -2317,7 +2319,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.98,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -2342,7 +2344,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 1,
+      "confidence": 0.99,
       "quote": ""
     }
   },
@@ -2417,7 +2419,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.98,
       "quote": ""
     }
   },
@@ -2467,7 +2469,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -2642,7 +2644,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -2667,7 +2669,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.98,
       "quote": ""
     }
   },
@@ -2692,7 +2694,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.98,
       "quote": ""
     }
   },
@@ -2817,7 +2819,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -3092,7 +3094,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -3242,7 +3244,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0,
       "quote": ""
     }
   },
@@ -3317,7 +3319,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -3342,7 +3344,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -3392,7 +3394,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -3692,7 +3694,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.8,
+      "confidence": 0.2,
       "quote": ""
     }
   },
@@ -4067,7 +4069,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -4542,7 +4544,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -4667,7 +4669,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -5142,7 +5144,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -5342,7 +5344,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.2,
+      "confidence": 0.8,
       "quote": ""
     }
   },
@@ -6042,7 +6044,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.95,
+      "confidence": 0.9,
       "quote": ""
     }
   },
@@ -6242,7 +6244,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.9,
+      "confidence": 0.95,
       "quote": ""
     }
   },
@@ -6742,7 +6744,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.8,
+      "confidence": 0.2,
       "quote": ""
     }
   },
@@ -6792,7 +6794,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.2,
+      "confidence": 0.3,
       "quote": ""
     }
   },
@@ -6892,7 +6894,7 @@
       "stop": null,
       "targets": [],
       "leverage": null,
-      "confidence": 0.8,
+      "confidence": 0.9,
       "quote": ""
     }
   },

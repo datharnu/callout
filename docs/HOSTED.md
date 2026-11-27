@@ -34,7 +34,7 @@ sandbox is configured from `.env` (allowlisted Telegram group + senders), exactl
 | POST | `/api/sandbox` | | `{ token, sandboxId, expiresAt }` |
 | GET | `/api/state` | | same shape as today (`now`, `session`, `cards[]`), scoped to the sandbox |
 | GET | `/api/settings` | | sizes, rules, `tradesToday` for this sandbox, `limits` (remaining judge quotas) |
-| POST | `/api/cards/:id/:action` | | `action` ∈ confirm, cancel, skip, dismiss → card view |
+| POST | `/api/cards/:id/:action` | | `action` ∈ confirm, cancel, skip, dismiss → card view. `confirm?rev=N`: the card revision the glasses showed; a different revision (the size or stop changed since) → `409` |
 | POST | `/api/cards/:id/voice` | raw 16 kHz s16le mono PCM (`application/octet-stream`) | `{ heard, commands, note, navigate?, card }` |
 | POST | `/api/judge/sample` | `{ kind }`, kind ∈ `clean`, `scam`, `impostor`, `vague`, `far`, `holding`, `chatter` | the ingest result (`{ outcome, card? , reason? }`) |
 | POST | `/api/pair` | | `{ code, expiresAt, group: { title, inviteUrl? } }`: a 6-digit code for this sandbox |

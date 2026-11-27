@@ -604,6 +604,7 @@ function TelegramRow({ push }: { push: (t: string, tone?: LogLine['tone']) => vo
         <span className="row-preview">{linked ? 'Post a call in the group' : 'Send a real call from your phone'}</span>
       </summary>
       <p className="t-small" style={{ marginBottom: 8 }}>Post a trade call in our Telegram group and it shows up on these glasses, like a real call would.</p>
+      <p className="t-small tg-dm">Or check any call privately: forward it to <a className="link" href="https://t.me/callout8_bot" target="_blank" rel="noreferrer">@callout8_bot</a> and it replies with what it read, the live price and any scam signs. Read-only. Once paired, ask it for <code>/summary</code>, <code>/rules</code>, <code>/setrule maxTradesPerDay 1</code> and <code>/audit</code>.</p>
       <ol className="tg-steps">
         <li className={stage > 1 ? 'done' : 'now'}>
           <span className="tg-n">1</span>

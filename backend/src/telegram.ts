@@ -9,12 +9,16 @@ import { judgesPaused } from './pause.js'
 import { audit } from './store.js'
 import { config } from './config.js'
 import type { Card, IncomingMessage } from './types.js'
+import { handlePrivate } from './tg-private.js'
+import { hiddenLinks } from './tg-util.js'
+import { notePairFailure, pairTriesLeft } from './pair-guard.js'
 
 export const bot = new Bot(requireEnv('TELEGRAM_BOT_TOKEN'))
 
 function toIncoming(ctx: Context, edited: boolean): IncomingMessage | undefined {
   const m = ctx.msg
   if (!m) return undefined
+  const links = hiddenLinks(m)
   const sender = m.sender_chat
     ? { id: String(m.sender_chat.id), name: 'title' in m.sender_chat ? (m.sender_chat.title ?? '') : '' }
     : m.from
@@ -30,6 +34,7 @@ function toIncoming(ctx: Context, edited: boolean): IncomingMessage | undefined 
     text: m.text ?? m.caption ?? '',
     sentAt: m.date * 1000,
     ...(edited && m.edit_date ? { editedAt: m.edit_date * 1000 } : {}),
+    ...(links.length ? { links } : {}),
     source: 'telegram',
   }
 }
@@ -41,6 +46,14 @@ export const group: { title: string; inviteUrl?: string } = { title: '', inviteU
 async function handlePair(ctx: Context, msg: IncomingMessage): Promise<boolean> {
   const m = msg.text.trim().match(/^\/pair(?:@\w+)?\s+(\d{6})\b/i)
   if (!m || !config.allowedChatIds.has(msg.chatId)) return false
+  const who = `${msg.chatId}:${msg.senderId}`
+  if (pairTriesLeft(who) <= 0) {
+    audit('pair_locked', { chatId: msg.chatId, senderId: msg.senderId })
+    await ctx.reply('Too many wrong codes. Please wait 10 minutes, then get a fresh code.', {
+      reply_parameters: { message_id: msg.messageId, allow_sending_without_reply: true },
+    }).catch(() => {})
+    return true
+  }
   if (judgesPaused()) {
     await ctx.reply('Callout judge sessions are paused right now. Please check back later.', {
       reply_parameters: { message_id: msg.messageId, allow_sending_without_reply: true },
@@ -48,6 +61,7 @@ async function handlePair(ctx: Context, msg: IncomingMessage): Promise<boolean> 
     return true
   }
   const sb = redeemPairCode(m[1]!, msg.senderId, msg.senderName)
+  if (!sb) notePairFailure(who)
   audit('pair', { chatId: msg.chatId, senderId: msg.senderId, ok: !!sb, sandbox: sb?.id })
   await ctx.reply(
     sb
@@ -60,6 +74,11 @@ async function handlePair(ctx: Context, msg: IncomingMessage): Promise<boolean> 
 
 function handle(edited: boolean) {
   return async (ctx: Context) => {
+    // Private chat with the bot: read-only checks, your summary and your own settings (tg-private.ts).
+    if (ctx.chat?.type === 'private') {
+      if (!edited) await handlePrivate(ctx)
+      return
+    }
     const msg = toIncoming(ctx, edited)
     if (!msg) return
     if (!edited && (await handlePair(ctx, msg))) return
@@ -122,6 +141,14 @@ export async function startTelegram(): Promise<void> {
   const chatId = [...config.allowedChatIds][0]
   if (chatId) group.title = await bot.api.getChat(Number(chatId)).then(c => ('title' in c ? c.title ?? '' : '')).catch(() => '')
   console.log(`[telegram] @${me.username} · privacy ${me.can_read_all_group_messages ? 'off' : 'ON (bot only sees commands!)'}`)
+  // The command menu in a private chat with the bot (groups only use /pair).
+  await bot.api.setMyCommands([
+    { command: 'summary', description: 'Your session today: calls, blocks and why, orders' },
+    { command: 'rules', description: 'Your trading rules, checked in code before every order' },
+    { command: 'setrule', description: 'Change a rule, e.g. /setrule maxTradesPerDay 1' },
+    { command: 'audit', description: 'Your last decisions' },
+    { command: 'help', description: 'Forward me a call to check it privately' },
+  ], { scope: { type: 'all_private_chats' } }).catch(e => console.warn('[telegram] setMyCommands failed:', (e as Error).message))
   if (webhookMode) {
     const base = (process.env.CALLOUT_PUBLIC_URL ?? process.env.RENDER_EXTERNAL_URL ?? '').replace(/\/$/, '')
     if (!base) throw new Error('webhook mode needs CALLOUT_PUBLIC_URL (or RENDER_EXTERNAL_URL)')

@@ -17,6 +17,8 @@ export interface CheckInput {
   stopOverride?: number
   sentAt: number
   now: number
+  /** Link targets Telegram hides behind text ("Join VIP" → t.me/...): not in rawText, still a link. */
+  hiddenLinks?: string[]
 }
 
 export type CheckVerdict =
@@ -52,11 +54,25 @@ export function traceable(value: number, written: number[]): boolean {
   return false
 }
 
+/**
+ * Undo the usual tricks for hiding a link from filters: zero-width characters, full-width letters
+ * ("ｔ.ｍｅ"), "t . me", "t[.]me", "(dot)", "vipsignals dot com" and "hxxp". Red-team cases r24–r29.
+ */
+export function deobfuscate(text: string): string {
+  return text
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g, '')
+    .replace(/\s*(\[\.\]|\(\.\)|\{\.\}|\[dot\]|\(dot\)|\{dot\})\s*/gi, '.')
+    .replace(/(\w)\s+dot\s+(com|io|xyz|net|org|app|link|site|me|gg|co|cc|top|vip)\b/gi, '$1.$2')
+    .replace(/\b([a-z0-9-]+)\s+\.\s+([a-z]{2,6})\b/gi, '$1.$2')
+    .replace(/\bhxxp(s?)/gi, 'http$1')
+}
+
 /** Factual risk flags from the raw text. Wording states what is there, not a judgment. */
 export function scamFlags(text: string): string[] {
   const t = text.toLowerCase()
   const flags: string[] = []
-  if (/(https?:\/\/|www\.|t\.me\/|\b[a-z0-9-]+\.(com|io|xyz|net|org|app|link|site)\b)/i.test(text)) flags.push('contains link')
+  if (/(https?:\/\/|www\.|t\.me\/|\b[a-z0-9-]+\.(com|io|xyz|net|org|app|link|site)\b)/i.test(deobfuscate(text))) flags.push('contains link')
   for (const word of ['guaranteed', 'risk free', 'risk-free', '100% win', 'cant lose', "can't lose", 'sure shot', 'free money']) {
     if (t.includes(word)) flags.push(`says "${word}"`)
   }
@@ -86,6 +102,7 @@ export function runChecks(input: CheckInput, s: CheckSettings): CheckVerdict {
 
   const flags: string[] = []
   flags.push(...scamFlags(rawText))
+  if (input.hiddenLinks?.length && !flags.includes('contains link')) flags.push('contains hidden link')
 
   if (!s.symbolWhitelist.has(p.symbol)) flags.push('coin not on list')
 

@@ -1,0 +1,37 @@
+name: tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # Unit tests need no keys: they never call Bybit, Telegram, Anthropic or ElevenLabs.
+      CALLOUT_DB: ${{ runner.temp }}/callout-test.sqlite
+      CALLOUT_LOG_DIR: ${{ runner.temp }}/logs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Backend · install
+        working-directory: backend
+        run: npm ci
+      - name: Backend · typecheck + unit tests
+        working-directory: backend
+        run: npx tsc --noEmit -p . && npm test
+      - name: Glasses · install
+        working-directory: glasses
+        run: npm ci
+      - name: Glasses · typecheck + unit tests
+        working-directory: glasses
+        run: npx tsc --noEmit -p . && npm test
+      - name: Website · install + build
+        working-directory: web
+        run: npm ci && npm run build

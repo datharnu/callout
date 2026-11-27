@@ -78,6 +78,7 @@ export interface CardView {
   order: { kind: 'open' | 'close'; orderId: string; side: string; qty: string; avgPrice?: string; status: string; receiptSent?: boolean } | null
   position: { side: 'Buy' | 'Sell'; size: string; avgPrice: number; markPrice: number; pnlPct: number } | null
   userStop: number | null
+  rev?: number // revision of the values on screen; sent back with a tap so it places exactly what was seen
   voice: { heard: string; command?: string; result: string; message: string; state: CardState; at: number } | null
   voiceHint: string
   record: { seen: number; tp: number; sl: number; open: number; noEntry: number; ambiguous: number; synthetic: boolean } | null
@@ -148,8 +149,9 @@ export async function sendVoice(id: string, pcm: Uint8Array): Promise<VoiceRespo
 
 export type ActionResult = { ok: true; card: CardView } | { ok: false; error: string }
 
-export async function sendAction(id: string, action: Action): Promise<ActionResult> {
-  const r = await fetch(`${API_BASE}/api/cards/${encodeURIComponent(id)}/${action}`, { method: 'POST', headers: headers() })
+export async function sendAction(id: string, action: Action, rev?: number): Promise<ActionResult> {
+  const q = action === 'confirm' && rev !== undefined ? `?rev=${rev}` : ''
+  const r = await fetch(`${API_BASE}/api/cards/${encodeURIComponent(id)}/${action}${q}`, { method: 'POST', headers: headers() })
   const body = (await r.json()) as any
   return r.ok ? { ok: true, card: body as CardView } : { ok: false, error: String(body?.error ?? r.status) }
 }

@@ -24,6 +24,7 @@ export interface IncomingMessage {
   text: string
   sentAt: number // ms epoch (Telegram message date)
   editedAt?: number // ms epoch if this is an edit
+  links?: string[] // link targets hidden behind text (Telegram text_link entities): checked like visible links
   source: 'telegram' | 'replay'
 }
 
@@ -104,6 +105,7 @@ export interface Card {
   position?: PositionInfo // holding cards: the user's current demo position
   record?: TrackRecord // caller track record at card time
   userStop?: number // stop the user set by voice (replaces the caller's; all checks re-run)
+  rev?: number // display revision: +1 whenever a value a tap would act on changes (size, stop). A tap must name the rev it saw
   sizeFactor?: 0.5 | 1 // voice "half size" / "full size"; size is always settings × factor, capped
   voice?: VoiceNote // last voice interaction on this card, shown on the glasses
   voicePending?: { prefix: string; until: number } // unfinished command ("set stop…") waiting for its price

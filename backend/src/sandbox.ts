@@ -1,6 +1,9 @@
 // Sandboxes: every visitor works in their own space (cards, counters, limits). The owner's sandbox is
 // configured from .env exactly as before; judges get one each from the hosted site.
 import { randomBytes, randomInt } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { config } from './config.js'
 import type { RuleSettings } from './rules.js'
 import type { Card } from './types.js'
@@ -59,15 +62,61 @@ const blank = (now = Date.now()) => ({
 })
 
 /** The owner: allowlist and rules from .env. Token from CALLOUT_OWNER_TOKEN (random if unset → local-only access). */
+// The owner's rules and size start from .env and can be changed from Telegram (/setrule); changes are
+// saved next to the database so they survive a restart.
+const OWNER_SETTINGS = path.join(path.dirname(process.env.CALLOUT_DB ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../data/callout.sqlite')), 'owner-settings.json')
+function savedOwnerSettings(): Partial<{ sizeUsd: number } & Sandbox['rules']> {
+  try {
+    return existsSync(OWNER_SETTINGS) ? JSON.parse(readFileSync(OWNER_SETTINGS, 'utf8')) : {}
+  } catch {
+    return {}
+  }
+}
+const saved = savedOwnerSettings()
+
 export const owner: Sandbox = register({
   id: 'owner',
   kind: 'owner',
   token: process.env.CALLOUT_OWNER_TOKEN?.trim() || newToken(),
   ...blank(),
   allow: { chats: config.allowedChatIds, senders: new Set(config.allowedSenderIds) },
-  sizeUsd: config.sizeUsd,
-  rules: { maxTradesPerDay: config.maxTradesPerDay, maxDailyLossUsd: config.maxDailyLossUsd, pauseAfterLosses: config.pauseAfterLosses },
+  sizeUsd: saved.sizeUsd ?? config.sizeUsd,
+  rules: {
+    maxTradesPerDay: saved.maxTradesPerDay ?? config.maxTradesPerDay,
+    maxDailyLossUsd: saved.maxDailyLossUsd ?? config.maxDailyLossUsd,
+    pauseAfterLosses: saved.pauseAfterLosses ?? config.pauseAfterLosses,
+  },
 })
+
+/** Settings the owner may change from Telegram, with their limits. */
+export const OWNER_SETTING_LIMITS = {
+  maxTradesPerDay: { min: 0, max: 50, help: 'orders per UTC day (0 = no limit)' },
+  maxDailyLossUsd: { min: 0, max: 10_000, help: 'stop for the day after losing this many USDT (0 = no limit)' },
+  pauseAfterLosses: { min: 0, max: 20, help: 'pause after this many losing trades in a row (0 = never)' },
+  sizeUsd: { min: 5, max: 0, help: 'order size in USDT (up to the configured cap)' },
+} as const
+export type OwnerSetting = keyof typeof OWNER_SETTING_LIMITS
+
+/** Change one owner setting; returns an error message, or null when saved. */
+export function setOwnerSetting(name: string, value: number): string | null {
+  if (!(name in OWNER_SETTING_LIMITS)) return `Unknown setting. Use one of: ${Object.keys(OWNER_SETTING_LIMITS).join(', ')}`
+  const lim = OWNER_SETTING_LIMITS[name as OwnerSetting]
+  const max = name === 'sizeUsd' ? config.maxSizeUsd : lim.max
+  if (!Number.isFinite(value) || value < lim.min || value > max) return `${name} must be between ${lim.min} and ${max}`
+  if (name === 'sizeUsd') owner.sizeUsd = value
+  else owner.rules[name as keyof Sandbox['rules']] = Math.round(value)
+  const out = { sizeUsd: owner.sizeUsd, ...owner.rules }
+  try {
+    mkdirSync(path.dirname(OWNER_SETTINGS), { recursive: true })
+    writeFileSync(OWNER_SETTINGS, JSON.stringify(out, null, 2))
+  } catch (e) {
+    return `Changed for now, but could not save it: ${(e as Error).message}`
+  }
+  return null
+}
+
+/** The Telegram user allowed to change the owner's settings and read the owner's audit (default: the first allowlisted caller). */
+export const ownerTelegramId = process.env.TELEGRAM_OWNER_ID?.trim() || [...config.allowedSenderIds][0] || ''
 export const ownerTokenConfigured = !!process.env.CALLOUT_OWNER_TOKEN?.trim()
 
 /** The admin whose calls the judge panel's sample messages come from (the group's allowlisted caller). */

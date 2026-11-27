@@ -221,7 +221,7 @@ async function act(action: Action) {
   if (!c || busy) return
   busy = true
   try {
-    const r = await sendAction(c.id, action)
+    const r = await sendAction(c.id, action, c.rev ?? 0) // the revision on screen: a tap places what was seen
     if (r.ok) console.log(`[callout] ${action} ${c.id} → ${r.card.state}`)
     else console.warn(`[callout] ${action} ${c.id} refused: ${r.error}`)
   } catch (e) {

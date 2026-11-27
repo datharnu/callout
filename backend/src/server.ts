@@ -62,6 +62,7 @@ export function cardView(c: Card) {
     order: c.order ?? null,
     position: c.position ?? null,
     userStop: c.userStop ?? null,
+    rev: c.rev ?? 0,
     voice: c.voice ?? null,
     voiceHint: hintFor({ state: c.state, action: c.action, entry: p?.entry ?? null }),
     record: c.record ?? null,
@@ -235,12 +236,14 @@ export async function startServer() {
     }
   })
 
-  app.post<{ Params: { id: string; action: string } }>('/api/cards/:id/:action', async (req, reply) => {
+  app.post<{ Params: { id: string; action: string }; Querystring: { rev?: string } }>('/api/cards/:id/:action', async (req, reply) => {
     const { id, action } = req.params
     const sb = req.sandbox
+    // The glasses send the revision they were showing; a tap never places values the wearer didn't see.
+    const rev = req.query.rev !== undefined && /^\d+$/.test(req.query.rev) ? Number(req.query.rev) : undefined
     try {
       const card =
-        action === 'confirm' ? await confirm(sb, id)
+        action === 'confirm' ? await confirm(sb, id, rev)
         : action === 'cancel' ? cancel(sb, id)
         : action === 'skip' ? skip(sb, id)
         : action === 'dismiss' ? dismiss(sb, id)

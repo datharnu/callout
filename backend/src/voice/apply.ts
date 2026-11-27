@@ -91,12 +91,14 @@ export async function handleVoice(sb: Sandbox, cardId: string, pcm: Buffer): Pro
             refused = true
           } else {
             parts.push(`${cmd.factor === 0.5 ? 'Half' : 'Full'} size $${card.sizeUsd}`)
+            card.rev = (card.rev ?? 0) + 1 // what a tap would place changed
             anyApplied = true
           }
           break
         }
         case 'set_stop': {
           card.userStop = cmd.price
+          card.rev = (card.rev ?? 0) + 1 // what a tap would place changed
           await reevaluate(card)
           const s = card.state as Card['state']
           parts.push(s === 'ready' ? `Stop ${fmt(cmd.price)} (yours)` : `Stop ${fmt(cmd.price)}: ${card.flags.join(' · ') || s}`)

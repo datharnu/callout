@@ -14,6 +14,7 @@
 <p align="center">
   <a href="https://youtu.be/EQE6fJ02oIU"><img alt="Demo video" src="https://img.shields.io/badge/demo%20video-2:08-1F6B45?style=flat-square"></a>
   <a href="https://callout-production-049324a2.up.railway.app/try/"><img alt="Try it live" src="https://img.shields.io/badge/try%20it%20live-browser%20G2%20preview-0E7C86?style=flat-square"></a>
+  <a href="https://github.com/datharnu/callout/actions/workflows/test.yml"><img alt="tests" src="https://github.com/datharnu/callout/actions/workflows/test.yml/badge.svg"></a>
   <a href="#proof-one-real-order-three-places"><img alt="Proof" src="https://img.shields.io/badge/proof-same%20order%20ID%20in%203%20places-D8920F?style=flat-square"></a>
   <a href="#accuracy"><img alt="Unsafe one-tap cards" src="https://img.shields.io/badge/unsafe%20one--tap%20cards-0%20%2F%20269-C93D25?style=flat-square"></a>
   <a href="#voice"><img alt="Risky voice misfires" src="https://img.shields.io/badge/risky%20voice%20misfires-0%20%2F%20180-F5A524?style=flat-square"></a>
@@ -22,6 +23,7 @@
 
 <p align="center">
   <a href="https://callout-production-049324a2.up.railway.app/try/"><b>Try it live</b></a> ·
+  <a href="docs/JUDGES.md"><b>Judge in 2 minutes</b></a> ·
   <a href="https://youtu.be/EQE6fJ02oIU"><b>Demo video</b></a> ·
   <a href="#proof-one-real-order-three-places"><b>Proof</b></a> ·
   <a href="#how-it-works"><b>How it works</b></a> ·
@@ -47,7 +49,8 @@ Callout reads the Telegram trade-call groups you choose. It checks each call aga
 | **Who it's for** | Active crypto traders who follow Telegram call groups and trade on Bybit |
 | **Built with** | Even Hub SDK + simulator · grammY (Telegram bot) · Claude Haiku 5.5 (extraction only) · ElevenLabs Scribe (speech-to-text) · Bybit V5 API (Demo for orders, mainnet for prices) · Fastify · SQLite |
 | **Status** | Works end to end in the Even Hub simulator and **live at [callout-production-049324a2.up.railway.app](https://callout-production-049324a2.up.railway.app)**: a live Telegram call, adjusted by voice, placed on Bybit Demo from the glasses, with the receipt back in the group |
-| **Measured** | 0 unsafe one-tap cards in 269 labeled messages · 0 risky misfires in 180 spoken commands (6 accents) · 82 unit tests · see [Accuracy](#accuracy) and [Voice](#voice) |
+| **Measured** | 0 unsafe one-tap cards in 269 labeled messages · 0 / 46 red-team messages got through · 0 risky misfires in 180 spoken commands (6 accents) · 88 unit tests, run on every push · every suite in the [test report](docs/TEST-REPORT.md) |
+| **Everything is real** | The demo video, the screenshots and the order IDs come from live runs: the real Telegram bot and group, the official Even Hub simulator, and real Bybit Demo orders (the proof below shows one order ID in all three places). Nothing is mocked or staged |
 
 ---
 
@@ -71,6 +74,8 @@ A live call posted in Telegram, adjusted by voice, confirmed with a tap on the g
 | `FILLED 0.001 BTC @ 60,584.1 · Order ...5b8cf401` | `Open Long · 60,584.10 · 0.001 BTC · 20:27:28 · 5b8cf401` | `Buy 0.001 @ 60,584.1 · Order ...5b8cf401` |
 
 ## Try it live
+
+<p align="center"><img src="docs/media/judge-tour.gif" alt="42-second tour of the /try page: a sample call arrives, is checked against the live Bybit price, one tap places a Bybit Demo order and shows its ID, then a scam call is blocked with the reasons" width="820"><br><sub>Real run of the <code>/try</code> page (no edits): sample call → checks → one tap → Bybit Demo fill → a scam call blocked. Judges: <a href="docs/JUDGES.md">try it in 2 minutes</a>.</sub></p>
 
 **[callout-production-049324a2.up.railway.app/try](https://callout-production-049324a2.up.railway.app/try/)**: no install and no account needed. The page runs the real Callout glasses app with a 576×288 G2 display, buttons for the touchpads and R1 ring, and your microphone. Everything goes through the same parser, checks and Bybit Demo orders as the simulator build.
 
@@ -159,10 +164,13 @@ Telegram is where calls come from and where proof goes back. Everything Callout 
 | **Edits are handled** | An edited message is read again and replaces its pending card. It never changes an order that is already counting down or placed. |
 | **Linking a person: `/pair`** | On the hosted demo, a judge gets a 6-digit code on `/try` and sends `/pair 123456` in the group. From then on, calls that person posts land on their own glasses session only, and the bot confirms the link in the group. |
 | **Receipts in the thread** | After a fill, the bot replies directly under the original call: symbol, side, size, fill price and the order ID's last 8 characters (the form Bybit's Order History shows), marked "Bybit Demo (not real money)" and "Not financial advice". Reduce-only closes get a receipt too. |
+| **A private chat with the bot** | Forward it any trade call (or paste one) and it replies **privately** with what it read, the live-price distance, scam signs and the caller's record: the same parser and checks, read-only. `/summary` gives your session today (calls, what was blocked and why, orders, demo P&L). Your trading rules live in Telegram too: `/rules` shows them, `/setrule maxTradesPerDay 3` changes one (the owner's are saved across restarts), and `/audit` lists your last decisions. A paired judge gets the same commands for their own demo session and can tighten, never loosen, its limit |
+| **Links hidden behind text** | Telegram can hide a link behind words ("Join VIP" → `t.me/…`). Callout reads those link targets from the message and checks them like visible links; disguised links (`t . me`, `t[.]me`, "dot com", zero-width or full-width characters) are caught too |
+| **`/pair` can't be guessed** | Codes are single-use, expire in minutes, and each person gets 5 wrong tries per 10 minutes |
 | **Reliable delivery** | Hosted, the bot runs on a webhook protected by a secret token. Duplicate updates are dropped by `update_id`, and locally it can use polling instead (`npm run tg:unhook`). |
 | **The privacy-mode gotcha** | With Group Privacy on, a bot only sees commands, never ordinary messages. Run `/setprivacy` → **Disable** in @BotFather, then **remove the bot from the group and add it back**: Telegram only applies the change after a re-add. At startup Callout logs whether privacy is on. |
 
-**What Callout writes back to Telegram, and what it never writes.** It posts exactly two kinds of message: the **order receipt** (for an opened order and for a reduce-only close), as a reply to the call, and **`/pair` replies** (linked, code expired, or judge sessions paused). It never posts that a call was blocked, never comments on a caller, and never forwards calls. That is a design choice: Callout acts only on the user's own confirmed decision, so posting "this call is blocked" into a shared group would be public trading advice, and noise for everyone else. Checks and reasons stay private, on the user's glasses.
+**What Callout writes back to Telegram, and what it never writes.** In the **group**, exactly two kinds of message: the **order receipt** (for an opened order and for a reduce-only close), as a reply to the call, and **`/pair` replies** (linked, code expired, too many tries, or judge sessions paused). In a **private chat**, only to the person who asked: checks of forwarded calls, `/summary`, `/rules`, `/setrule` and `/audit`. It never posts in a group that a call was blocked, never comments on a caller there, and never forwards calls. That is a design choice: Callout acts only on the user's own confirmed decision, so posting "this call is blocked" into a shared group would be public trading advice, and noise for everyone else. Checks and reasons stay private: on the user's glasses, or in their own chat with the bot.
 
 ## Voice
 
@@ -207,7 +215,9 @@ Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). *
 | Risk | What Callout does |
 |---|---|
 | The AI recommends or sizes trades | The LLM only *extracts* values. Size comes from settings (default $200; $100 in the judge sandbox), with a configurable cap and a hard $1,000 cap in code. |
-| Prompt injection / hostile members | All checks run in code on the LLM's output. Every entry/SL/TP must be traceable to numbers written in the message, so invented values are blocked. |
+| Prompt injection / hostile members | All checks run in code on the LLM's output. Every entry/SL/TP must be traceable to numbers written in the message, so invented values are blocked. Tested with a [red-team set](backend/eval/REDTEAM.md): 0 / 46 hostile messages got through. |
+| A tap on something you didn't see | Every card carries a revision that goes up whenever the size or stop changes. The glasses send the revision they were showing with the tap; if a voice command changed the card after the screen was drawn, the tap is refused and the glasses say why. |
+| Disguised or hidden links | Links are found after undoing common disguises (`t . me`, `t[.]me`, "dot com", `hxxp`, zero-width and full-width characters), and link targets hidden behind text in Telegram are checked too. |
 | Impersonation | Sender allowlist by Telegram user ID (or `sender_chat` ID for anonymous admins and channel posts). Everyone else is only ever counted as noise. |
 | Stale trades | Calls expire after 15 min. The live price is re-checked at tap **and** again when the cancel window ends. |
 | Duplicate orders | Deterministic `orderLinkId` per card. Bybit rejects a repeat (`110072`), and Callout only accepts an existing order if Bybit created it after the card existed. |
@@ -235,6 +245,8 @@ Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). *
 - Field accuracy on trade calls (symbol, side, entry, stop, targets): 100% each (29 calls).
 - Tradable calls shown as tradable: 23/23. Non-allowlisted senders muted: 6/6.
 - The misses are cautious ones: two scam-worded calls and one call with its stop on the wrong side were read as "unsure", which is never tradable.
+
+**Red team** (`npm run eval:redteam`): 46 hostile messages, as if a caller's account were hacked: prompt injection, missing or absurd values, scam wording, disguised and hidden links. **0 / 46 got through.** The first run found 6 disguised-link gaps (`t . me`, `t[.]me`, "dot com", zero-width and full-width characters, a link hidden behind text); they were fixed in code and the main eval re-run with unchanged results. [`backend/eval/REDTEAM.md`](backend/eval/REDTEAM.md).
 
 Full report: [`backend/eval/RESULTS.md`](backend/eval/RESULTS.md). **Caveat:** the set was written by the same team that wrote the parser prompt, and the parser was improved after seeing results on it. There is **no held-out slice**, so treat these numbers as a smoke test, not a benchmark.
 
@@ -279,10 +291,11 @@ For each call Callout sees, it walks **Bybit mainnet 1-minute candles** from the
 
 ```bash
 cd backend
-npm test             # 60 unit tests (checks, track record, rules, voice commands, judge sandboxes, kill switch)
+npm test             # 66 unit tests (checks, link tricks, track record, rules, voice commands, judge sandboxes, kill switch, stale taps)
 npm run e2e:safety   # 12 live safety scenarios against the running backend (places no orders)
 npm run e2e:voice    # 17 spoken-command scenarios, real speech-to-text (macOS; places no orders)
 npm run eval         # labeled-set accuracy (about 260 Haiku calls, a few cents)
+npm run eval:redteam # 46 hostile messages (about 46 Haiku calls)
 npm run eval:voice   # voice accuracy, 180 utterances in 6 accents (macOS)
 npm run positions    # list demo positions;  -- --close  closes them reduce-only
 npm run judges -- pause   # hosted kill switch for "Try it live" (also: resume, status)
@@ -323,7 +336,8 @@ backend/
     track.ts        caller track record from mainnet 1-minute candles
     positions.ts    demo positions + reduce-only close
     bybit/          signed Demo client (refuses non-demo URLs) + mainnet public data
-    telegram.ts     grammY bot: messages/edits in, receipts out
+    telegram.ts     grammY bot: messages/edits in, receipts out, /pair
+    tg-private.ts   private chat: forward-to-check, /summary, /rules, /setrule, /audit
     server.ts       HTTP API + static site; bearer-token auth per sandbox
     sandbox.ts      judge sandboxes, Telegram /pair, per-coin lanes, quotas
     db.ts           SQLite: calls + orders
@@ -364,7 +378,7 @@ Nothing in this repository was written before Nov 23. The git history starts on 
 
 1. **Physical G2 testing**, including voice on the glasses' mic with its speaker detection.
 2. **User accounts on the hosted backend**: sign-in, each user's own Bybit keys (encrypted), and their own groups, building on the per-session tokens and Telegram `/pair` that already run in the hosted demo.
-3. **Telegram user-account login** (MTProto) to read channels you follow but don't run, and a **private session summary by DM** (calls seen, what was blocked and why, orders placed), so each user gets a written record while the group stays clean.
+3. **Telegram user-account login** (MTProto) to read channels you follow but don't run.
 4. **Partial take-profit and multiple targets**: "secure 50%" on holding cards, all TPs attached to the order.
 5. **Verified caller records** built from real observed calls (replacing the synthetic demo data), shared across users who opt in.
 6. **Real-exchange execution** after the licensing and legal review above.

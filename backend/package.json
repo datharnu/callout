@@ -19,7 +19,8 @@
     "demo": "tsx scripts/demo-run.ts",
     "e2e:judge": "tsx scripts/e2e-judge.ts",
     "tg:unhook": "tsx scripts/telegram-unhook.ts",
-    "judges": "tsx scripts/judges.ts"
+    "judges": "tsx scripts/judges.ts",
+    "eval:redteam": "tsx eval/redteam.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.14.0",

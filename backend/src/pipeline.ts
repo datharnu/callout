@@ -99,7 +99,7 @@ export async function ingest(msg: IncomingMessage, sb: Sandbox): Promise<IngestR
     // 4b. Code checks against mainnet live price, then the user's own rules.
     const price = parsed.symbol ? await livePrice(parsed.symbol) : undefined
     const verdict = runChecks(
-      { parsed, rawText: text, livePrice: price, sentAt: msg.sentAt, now },
+      { parsed, rawText: text, livePrice: price, sentAt: msg.sentAt, now, hiddenLinks: msg.links },
       { symbolWhitelist: config.symbolWhitelist, maxEntryDistancePct: config.maxEntryDistancePct, callExpiryMs: config.callExpiryMs },
     )
     let state: Card['state'] = verdict.state
@@ -206,4 +206,32 @@ export function sweepExpired(now = Date.now()): void {
       }
     }
   }
+}
+
+// ── read-only check (private chat: "forward a call, get the check back") ─────────────────────────
+export interface CheckOnlyResult {
+  kind: 'trade_call' | 'holding_update' | 'noise' | 'unsure'
+  parsed?: Card['parsed']
+  state?: Card['state']
+  flags: string[]
+  facts: Card['facts']
+  livePrice?: number
+  error?: string
+}
+
+/**
+ * The same parser and code checks as a group message, but nothing is stored, shown or traded.
+ * `sentAt` is when the call was originally posted (a forward keeps its date), so old calls show as expired.
+ */
+export async function checkOnly(text: string, sentAt: number, now = Date.now(), hiddenLinks?: string[]): Promise<CheckOnlyResult> {
+  const { parsed, error } = await parseMessage(text.trim())
+  if (error) return { kind: 'unsure', flags: ["Couldn't read this clearly"], facts: {}, error }
+  if (parsed.kind === 'noise') return { kind: 'noise', parsed, flags: [], facts: {} }
+  if (parsed.kind === 'holding_update') return { kind: 'holding_update', parsed, flags: [], facts: {} }
+  const price = parsed.symbol ? await livePrice(parsed.symbol) : undefined
+  const verdict = runChecks(
+    { parsed, rawText: text.trim(), livePrice: price, sentAt, now, hiddenLinks },
+    { symbolWhitelist: config.symbolWhitelist, maxEntryDistancePct: config.maxEntryDistancePct, callExpiryMs: config.callExpiryMs },
+  )
+  return { kind: parsed.kind === 'trade_call' ? 'trade_call' : 'unsure', parsed, state: verdict.state, flags: verdict.flags, facts: verdict.facts, ...(price ? { livePrice: price } : {}) }
 }

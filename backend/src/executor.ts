@@ -9,7 +9,7 @@ import { insertOrder } from './db.js'
 import { instrument, livePrice, roundToTick } from './market.js'
 import { positionInfo, userRuleFlags } from './pipeline.js'
 import { invalidateStats } from './rules.js'
-import { audit, BOOT, setState } from './store.js'
+import { audit, BOOT, setState, staleTap } from './store.js'
 import { JUDGE_AUTO_CLOSE_MS, judgePositionOf, judgePositions, sandboxById, type Sandbox } from './sandbox.js'
 import { closePosition, listPositions } from './positions.js'
 import type { Card, OrderResult } from './types.js'
@@ -56,7 +56,7 @@ async function recheck(card: Card, stage: string): Promise<boolean> {
   }
   const price = await livePrice(p.symbol!, 0)
   const v = runChecks(
-    { parsed: p, rawText: card.msg.text, livePrice: price, sentAt: card.msg.sentAt, now: Date.now(), stopOverride: card.userStop },
+    { parsed: p, rawText: card.msg.text, livePrice: price, sentAt: card.msg.sentAt, now: Date.now(), stopOverride: card.userStop, hiddenLinks: card.msg.links },
     { symbolWhitelist: config.symbolWhitelist, maxEntryDistancePct: config.maxEntryDistancePct, callExpiryMs: config.callExpiryMs },
   )
   const rules = v.state === 'ready' ? await userRuleFlags(sbOf(card)) : []
@@ -85,11 +85,20 @@ async function sizeFor(card: Card): Promise<string> {
   return qty
 }
 
-/** User tapped Place (open) or Close (holding). Re-check now, then start the cancel window. */
-export async function confirm(sb: Sandbox, id: string): Promise<Card> {
+/**
+ * User tapped Place (open) or Close (holding). Re-check now, then start the cancel window.
+ * `rev` is the card revision the glasses were showing: if the size or stop changed since (a voice command
+ * that landed after the screen was drawn), the tap is refused, so a tap only ever places what was seen.
+ */
+export async function confirm(sb: Sandbox, id: string, rev?: number): Promise<Card> {
   const card = getCard(sb, id)
   const expected = card.action === 'close' ? 'holding' : 'ready'
   if (card.state !== expected) throw new ActionError(409, `card is ${card.state}`)
+  if (staleTap(card, rev)) {
+    card.notice = 'This card changed since you saw it · check it, then tap again'
+    card.noticeAt = Date.now()
+    throw new ActionError(409, card.notice)
+  }
   if (Date.now() > card.expiresAt) {
     setState(card, 'expired')
     return card
@@ -156,7 +165,7 @@ export async function reevaluate(card: Card): Promise<void> {
   const p = card.parsed!
   const price = p.symbol ? await livePrice(p.symbol, 0) : undefined
   const v = runChecks(
-    { parsed: p, rawText: card.msg.text, livePrice: price, sentAt: card.msg.sentAt, now: Date.now(), stopOverride: card.userStop },
+    { parsed: p, rawText: card.msg.text, livePrice: price, sentAt: card.msg.sentAt, now: Date.now(), stopOverride: card.userStop, hiddenLinks: card.msg.links },
     { symbolWhitelist: config.symbolWhitelist, maxEntryDistancePct: config.maxEntryDistancePct, callExpiryMs: config.callExpiryMs },
   )
   card.facts = v.facts
