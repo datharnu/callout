@@ -23,6 +23,9 @@ export interface Sandbox {
   createdAt: number
   lastSeen: number
   usage: { samples: number[]; voice: number[] }
+  /** Judges: the coin their sample calls use, so judges trading at the same time never share a position. */
+  coin?: string
+  coinAt?: number
 }
 
 export const JUDGE = {
@@ -149,8 +152,29 @@ export function sweepSandboxes(now = Date.now()) {
 }
 
 /**
- * The one judge demo position that may be open at a time (all judges share the owner's Bybit Demo
- * account, and one-way mode would merge two judges' positions). Closed automatically after 2 minutes.
+ * Open judge demo positions, ONE PER COIN. All judges share the owner's Bybit Demo account, where one-way
+ * mode keeps one position per coin: two judges on the same coin would merge (a close or a stop would hit
+ * both). Each judge gets their own coin instead, so up to ~9 judges can trade at the same time.
+ * Each position is closed automatically after JUDGE_AUTO_CLOSE_MS.
  */
-export const judgePosition: { current?: { sandboxId: string; cardId: string; symbol: string; side: 'Buy' | 'Sell'; qty: string; openedAt: number } } = {}
+export interface JudgePosition { sandboxId: string; cardId: string; symbol: string; side: 'Buy' | 'Sell'; qty: string; openedAt: number }
+export const judgePositions = new Map<string, JudgePosition>()
+export const judgePositionOf = (sb: Sandbox) => [...judgePositions.values()].find(p => p.sandboxId === sb.id)
+
+/** Coins handed to judges, BTC last (it's the owner's usual coin). Filtered by the symbol whitelist. */
+export const JUDGE_COINS = ['ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'DOGEUSDT', 'LINKUSDT', 'AVAXUSDT', 'ADAUSDT', 'BNBUSDT', 'TONUSDT', 'BTCUSDT']
+  .filter(c => config.symbolWhitelist.has(c))
+const COIN_HOLD_MS = 10 * 60_000 // a judge keeps their coin while active
+
+/** The coin this judge's sample calls use: keep theirs if nobody else is on it, else the first free one. */
+export function coinFor(sb: Sandbox, now = Date.now()): string {
+  const takenByOther = (c: string) =>
+    (judgePositions.get(c) && judgePositions.get(c)!.sandboxId !== sb.id) ||
+    allSandboxes().some(o => o !== sb && o.kind === 'judge' && o.coin === c && now - (o.coinAt ?? 0) < COIN_HOLD_MS)
+  const own = judgePositionOf(sb)?.symbol
+  const pick = own ?? (sb.coin && !takenByOther(sb.coin) ? sb.coin : JUDGE_COINS.find(c => !takenByOther(c)) ?? JUDGE_COINS[0]!)
+  sb.coin = pick
+  sb.coinAt = now
+  return pick
+}
 export const JUDGE_AUTO_CLOSE_MS = Number(process.env.CALLOUT_JUDGE_AUTOCLOSE_SEC ?? 120) * 1000

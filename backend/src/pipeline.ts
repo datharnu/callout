@@ -4,7 +4,7 @@ import { parseMessage } from './ai/parse.js'
 import { runChecks } from './checks.js'
 import { livePrice } from './market.js'
 import { audit, messageKey, setState } from './store.js'
-import { allSandboxes, judgePosition, type Sandbox } from './sandbox.js'
+import { allSandboxes, judgePositions, type Sandbox } from './sandbox.js'
 import { takeBudget } from './budget.js'
 import { filledOpensSince } from './db.js'
 import type { Card, IncomingMessage, PositionInfo } from './types.js'
@@ -153,8 +153,8 @@ export async function userRuleFlags(sb: Sandbox): Promise<string[]> {
 /** The position a holding card refers to. Judges only ever see their own open demo position. */
 export async function positionInfo(sb: Sandbox, symbol: string): Promise<PositionInfo | undefined> {
   if (sb.kind === 'judge') {
-    const j = judgePosition.current
-    if (!j || j.sandboxId !== sb.id || j.symbol !== symbol) return undefined
+    const j = judgePositions.get(symbol)
+    if (!j || j.sandboxId !== sb.id) return undefined
   }
   const [p] = await listPositions(bybit, symbol)
   if (!p) return undefined

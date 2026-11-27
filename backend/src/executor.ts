@@ -10,7 +10,7 @@ import { instrument, livePrice, roundToTick } from './market.js'
 import { positionInfo, userRuleFlags } from './pipeline.js'
 import { invalidateStats } from './rules.js'
 import { audit, BOOT, setState } from './store.js'
-import { JUDGE_AUTO_CLOSE_MS, judgePosition, sandboxById, type Sandbox } from './sandbox.js'
+import { JUDGE_AUTO_CLOSE_MS, judgePositionOf, judgePositions, sandboxById, type Sandbox } from './sandbox.js'
 import { closePosition, listPositions } from './positions.js'
 import type { Card, OrderResult } from './types.js'
 
@@ -280,51 +280,55 @@ async function execute(sb: Sandbox, id: string): Promise<void> {
   }
 }
 
-// ── Judge positions: one at a time, closed automatically ──────────────────────────────────────
-let autoClose: NodeJS.Timeout | undefined
+// ── Judge positions: one per coin, one per judge, closed automatically ─────────────────────────
+const autoClose = new Map<string, NodeJS.Timeout>() // symbol → timer
+const coinName = (symbol: string) => symbol.replace(/USDT$/, '')
 
-/** Why a judge can't open a demo position right now (or null). */
+/** Why a judge can't open this demo position right now (or null). */
 async function judgeBusyReason(card: Card): Promise<string | null> {
-  const j = judgePosition.current
-  if (j) {
-    const left = Math.max(5, Math.ceil((j.openedAt + JUDGE_AUTO_CLOSE_MS - Date.now()) / 1000))
-    return j.sandboxId === card.sandboxId
-      ? `Your demo position is still open · close it or wait ~${left} s`
-      : `Another judge's demo order is open · try again in ~${left} s`
-  }
-  const open = await listPositions(bybit).catch(() => null)
+  const symbol = card.parsed!.symbol!
+  const left = (openedAt: number) => Math.max(5, Math.ceil((openedAt + JUDGE_AUTO_CLOSE_MS - Date.now()) / 1000))
+  const mine = judgePositionOf(sandboxById(card.sandboxId)!)
+  if (mine) return `Your ${coinName(mine.symbol)} demo position is still open · close it or wait ~${left(mine.openedAt)} s`
+  const j = judgePositions.get(symbol)
+  if (j) return `Another judge is trading ${coinName(symbol)} right now · try again in ~${left(j.openedAt)} s, or use another coin`
+  const open = await listPositions(bybit, symbol).catch(() => null)
   if (open === null) return "Couldn't read the demo account · try again"
-  if (open.length) return 'A demo position is already open · try again in a minute'
+  if (open.length) return `A ${coinName(symbol)} demo position is already open · try again in a minute`
   return null
 }
 
 function trackJudgePosition(sb: Sandbox, card: Card, order: OrderResult) {
+  const symbol = card.parsed!.symbol!
   if (order.kind === 'close') {
-    if (judgePosition.current?.sandboxId === sb.id) {
-      judgePosition.current = undefined
-      clearTimeout(autoClose)
+    if (judgePositions.get(symbol)?.sandboxId === sb.id) {
+      judgePositions.delete(symbol)
+      clearTimeout(autoClose.get(symbol))
+      autoClose.delete(symbol)
     }
     return
   }
-  judgePosition.current = { sandboxId: sb.id, cardId: card.id, symbol: card.parsed!.symbol!, side: order.side, qty: order.qty, openedAt: Date.now() }
-  clearTimeout(autoClose)
-  autoClose = setTimeout(() => void autoCloseJudge(), JUDGE_AUTO_CLOSE_MS)
-  autoClose.unref?.()
+  judgePositions.set(symbol, { sandboxId: sb.id, cardId: card.id, symbol, side: order.side, qty: order.qty, openedAt: Date.now() })
+  clearTimeout(autoClose.get(symbol))
+  const t = setTimeout(() => void autoCloseJudge(symbol), JUDGE_AUTO_CLOSE_MS)
+  t.unref?.()
+  autoClose.set(symbol, t)
 }
 
-/** After 2 minutes, close the judge's demo position (reduce-only) so the shared account is clean. */
-async function autoCloseJudge() {
-  const j = judgePosition.current
+/** After JUDGE_AUTO_CLOSE_MS, close the judge's demo position (reduce-only) so the shared account is clean. */
+async function autoCloseJudge(symbol: string) {
+  const j = judgePositions.get(symbol)
   if (!j) return
   try {
     const r = await closePosition(bybit, j.symbol, `auto:${BOOT}:${j.sandboxId}:${j.cardId}`)
-    audit('judge_auto_close', { sandbox: j.sandboxId, card: j.cardId, retCode: r.retCode, orderId: r.orderId, qty: r.qty })
+    audit('judge_auto_close', { sandbox: j.sandboxId, card: j.cardId, symbol, retCode: r.retCode, orderId: r.orderId, qty: r.qty })
     const sb = sandboxById(j.sandboxId)
     const secs = Math.round(JUDGE_AUTO_CLOSE_MS / 1000)
-    if (sb) sb.session.lastResult = `${j.symbol.replace('USDT', '')} demo position auto-closed after ${secs >= 120 ? `${Math.round(secs / 60)} min` : `${secs} s`}`
+    if (sb) sb.session.lastResult = `${coinName(symbol)} demo position auto-closed after ${secs >= 120 ? `${Math.round(secs / 60)} min` : `${secs} s`}`
   } catch (e) {
-    audit('judge_auto_close_failed', { sandbox: j.sandboxId, error: (e as Error).message })
+    audit('judge_auto_close_failed', { sandbox: j.sandboxId, symbol, error: (e as Error).message })
   } finally {
-    judgePosition.current = undefined
+    judgePositions.delete(symbol)
+    autoClose.delete(symbol)
   }
 }

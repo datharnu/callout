@@ -54,12 +54,22 @@ export function availableCommands(ctx: Pick<VoiceContext, 'state' | 'action'>): 
   }
 }
 
-export function hintFor(ctx: Pick<VoiceContext, 'state' | 'action'>): string {
+/** A natural spoken price near `v`, e.g. 59.5k, 2365, 138, 0.512 (for the example in the hint). */
+function examplePrice(v: number): string {
+  if (v >= 10_000) return `${(v / 1000).toFixed(1).replace(/\.0$/, '')}k`
+  if (v >= 100) return String(Math.round(v))
+  if (v >= 1) return v.toFixed(2).replace(/0$/, '')
+  return String(Number(v.toPrecision(3)))
+}
+
+/** The on-screen hint; the "set stop" example is ~1.5% below the card's own entry, so it fits any coin. */
+export function hintFor(ctx: Pick<VoiceContext, 'state' | 'action'> & { entry?: number | null }): string {
+  const stop = ctx.entry ? examplePrice(ctx.entry * 0.985) : '59k'
   switch (ctx.state) {
     case 'ready':
-      return 'say: half size · set stop 59k · skip'
+      return `say: half size · set stop ${stop} · skip`
     case 'blocked':
-      return 'say: skip · set stop 59k'
+      return `say: skip · set stop ${stop}`
     case 'unsure':
       return 'say: skip'
     case 'holding':

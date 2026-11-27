@@ -18,7 +18,7 @@ import { MAX_AUDIO_MS, pcmDurationMs } from './voice/stt.js'
 import { livePrice } from './market.js'
 import { budgetLeft } from './budget.js'
 import {
-  byTokenOrNull, createJudge, demoAdminId, JUDGE, JUDGE_AUTO_CLOSE_MS, judgePosition, newPairCode, owner, ownerTokenConfigured,
+  byTokenOrNull, coinFor, createJudge, demoAdminId, JUDGE, JUDGE_AUTO_CLOSE_MS, JUDGE_COINS, judgePositionOf, judgePositions, newPairCode, owner, ownerTokenConfigured,
   quotaLeft, takeQuota, type Sandbox,
 } from './sandbox.js'
 import { group, registerTelegramWebhook, webhookMode } from './telegram.js'
@@ -62,7 +62,7 @@ export function cardView(c: Card) {
     position: c.position ?? null,
     userStop: c.userStop ?? null,
     voice: c.voice ?? null,
-    voiceHint: hintFor({ state: c.state, action: c.action }),
+    voiceHint: hintFor({ state: c.state, action: c.action, entry: p?.entry ?? null }),
     record: c.record ?? null,
     notice: c.notice && c.noticeAt && Date.now() - c.noticeAt < NOTICE_MS ? c.notice : null,
     error: c.state === 'failed' ? (c.error ?? null) : null,
@@ -104,20 +104,27 @@ const sandboxCreations = new Map<string, number[]>() // ip → timestamps (10 pe
 // ── judge sample calls ───────────────────────────────────────────────────────────────────────
 const SAMPLE_KINDS = ['clean', 'scam', 'impostor', 'vague', 'far', 'holding', 'chatter'] as const
 type SampleKind = (typeof SAMPLE_KINDS)[number]
-const r100 = (v: number) => Math.round(v / 100) * 100
-const k1 = (v: number) => `${Number((v / 1000).toFixed(1))}k`
+/** Price as a caller would write it: 60.6k for BTC, 2412 for ETH, 140.2 for SOL, 0.5234 for XRP. */
+function callPrice(v: number): string {
+  if (v >= 10_000) return `${Number((Math.round(v / 100) / 10).toFixed(1))}k`
+  const step = 10 ** (Math.floor(Math.log10(v)) - 3) // 4 significant digits
+  return String(Number((Math.round(v / step) * step).toPrecision(4)))
+}
 
-async function sampleMessage(kind: SampleKind): Promise<{ text: string; senderId: string; senderName: string }> {
-  const px = (await livePrice('BTCUSDT', 2000)) ?? 60000
-  const [E, S, T] = [r100(px), r100(px * 0.98), r100(px * 1.04)]
+/** A sample message on this judge's own coin, at that coin's live price. */
+async function sampleMessage(kind: SampleKind, symbol: string): Promise<{ text: string; senderId: string; senderName: string }> {
+  const coin = symbol.replace(/USDT$/, '')
+  const px = (await livePrice(symbol, 2000)) ?? 0
+  if (!(px > 0)) throw Object.assign(new Error(`no live ${coin} price right now`), { status: 503 })
+  const call = (e: number) => `LONG ${coin} entry ${callPrice(e)} SL ${callPrice(e * 0.98)} TP ${callPrice(e * 1.04)}`
   const admin = { senderId: demoAdminId, senderName: '@CalloutAdmin' }
   switch (kind) {
-    case 'clean': return { ...admin, text: `LONG BTC entry ${k1(E)} SL ${k1(S)} TP ${k1(T)}` }
-    case 'scam': return { ...admin, text: `🔥 GUARANTEED 100% WIN 🔥 LONG BTC ${E} SL ${S} TP ${T} join t.me/vip_pumps` }
-    case 'impostor': return { senderId: 'impostor-0', senderName: '@CalIoutAdmin', text: `LONG BTC entry ${k1(E)} SL ${k1(S)} TP ${k1(T)}` }
-    case 'vague': return { ...admin, text: 'btc looking spicy here 👀 might long soon, levels later' }
-    case 'far': return { ...admin, text: `LONG BTC entry ${k1(r100(px * 0.9))} SL ${k1(r100(px * 0.88))} TP ${k1(r100(px * 0.95))}` }
-    case 'holding': return { ...admin, text: 'Taking profit on BTC here, closing the long' }
+    case 'clean': return { ...admin, text: call(px) }
+    case 'scam': return { ...admin, text: `🔥 GUARANTEED 100% WIN 🔥 ${call(px)} join t.me/vip_pumps` }
+    case 'impostor': return { senderId: 'impostor-0', senderName: '@CalIoutAdmin', text: call(px) }
+    case 'vague': return { ...admin, text: `${coin.toLowerCase()} looking spicy here 👀 might long soon, levels later` }
+    case 'far': return { ...admin, text: call(px * 0.9) }
+    case 'holding': return { ...admin, text: `Taking profit on ${coin} here, closing the long` }
     case 'chatter': return { ...admin, text: 'gm everyone, coffee first ☕ charts later' }
   }
 }
@@ -174,7 +181,7 @@ export async function startServer() {
   // Read-only view of this sandbox's settings, rule counters and remaining judge quotas (no secrets).
   app.get('/api/settings', async req => {
     const sb = req.sandbox
-    const j = judgePosition.current
+    const j = judgePositionOf(sb)
     return {
       kind: sb.kind,
       sizeUsd: sb.sizeUsd,
@@ -188,7 +195,9 @@ export async function startServer() {
       ...(sb.kind === 'judge'
         ? {
             limits: { ...quotaLeft(sb), ...budgetLeft() },
-            judgePosition: j ? { mine: j.sandboxId === sb.id, closesInSec: Math.max(0, Math.ceil((j.openedAt + JUDGE_AUTO_CLOSE_MS - Date.now()) / 1000)) } : null,
+            coin: sb.coin ?? null,
+            judgePosition: j ? { mine: true, coin: j.symbol.replace(/USDT$/, ''), closesInSec: Math.max(0, Math.ceil((j.openedAt + JUDGE_AUTO_CLOSE_MS - Date.now()) / 1000)) } : null,
+            judgesTradingNow: judgePositions.size,
           }
         : {}),
     }
@@ -226,11 +235,20 @@ export async function startServer() {
 
   // Judge panel: a sample message through the real pipeline (real parser, real checks, live prices).
   let sampleId = Date.now()
-  app.post<{ Body: { kind?: string } }>('/api/judge/sample', async (req, reply) => {
+  app.post<{ Body: { kind?: string; coin?: string } }>('/api/judge/sample', async (req, reply) => {
     const kind = req.body?.kind as SampleKind
+    const asked = req.body?.coin ? `${req.body.coin.toUpperCase().replace(/USDT$/, '')}USDT` : undefined
+    if (asked && !JUDGE_COINS.includes(asked)) return reply.code(400).send({ error: `coin must be one of ${JUDGE_COINS.map(c => c.replace('USDT', '')).join(', ')}` })
     if (!SAMPLE_KINDS.includes(kind)) return reply.code(400).send({ error: `kind must be one of ${SAMPLE_KINDS.join(', ')}` })
     if (!takeQuota(req.sandbox, 'samples')) return reply.code(429).send({ error: `sample limit reached (${JUDGE.samplesPerHour} per hour)` })
-    const m = await sampleMessage(kind)
+    // Judges each get their own coin (no shared positions); the owner samples BTC.
+    const symbol = asked ?? (req.sandbox.kind === 'judge' ? coinFor(req.sandbox) : 'BTCUSDT')
+    let m: Awaited<ReturnType<typeof sampleMessage>>
+    try {
+      m = await sampleMessage(kind, symbol)
+    } catch (e) {
+      return fail(reply, e)
+    }
     const r = await ingest(
       { chatId: [...config.allowedChatIds][0] ?? 'demo', chatTitle: 'Judge sample', messageId: sampleId++, ...m, sentAt: Date.now(), source: 'replay' },
       req.sandbox,
