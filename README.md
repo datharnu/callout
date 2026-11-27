@@ -17,9 +17,7 @@
   <a href="#proof-one-real-order-three-places"><img alt="Proof" src="https://img.shields.io/badge/proof-same%20order%20ID%20in%203%20places-D8920F?style=flat-square"></a>
   <a href="#accuracy"><img alt="Unsafe one-tap cards" src="https://img.shields.io/badge/unsafe%20one--tap%20cards-0%20%2F%20269-C93D25?style=flat-square"></a>
   <a href="#voice"><img alt="Risky voice misfires" src="https://img.shields.io/badge/risky%20voice%20misfires-0%20%2F%20180-F5A524?style=flat-square"></a>
-  <a href="#setup"><img alt="Unit tests" src="https://img.shields.io/badge/unit%20tests-79-1F2A44?style=flat-square"></a>
-  <a href="#business"><img alt="Track" src="https://img.shields.io/badge/track-03%20Exchanges%20%26%20Stocks-1F6FB8?style=flat-square"></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-all%20rights%20reserved-5B6478?style=flat-square"></a>
+  <a href="#telegram-integration"><img alt="Tracks" src="https://img.shields.io/badge/tracks-03%20%2B%2001%20%C2%B7%20Telegram%20prize-1F6FB8?style=flat-square"></a>
 </p>
 
 <p align="center">
@@ -27,6 +25,7 @@
   <a href="https://youtu.be/EQE6fJ02oIU"><b>Demo video</b></a> ·
   <a href="#proof-one-real-order-three-places"><b>Proof</b></a> ·
   <a href="#how-it-works"><b>How it works</b></a> ·
+  <a href="#telegram-integration"><b>Telegram</b></a> ·
   <a href="#safety"><b>Safety</b></a> ·
   <a href="#voice"><b>Voice</b></a> ·
   <a href="#accuracy"><b>Accuracy</b></a> ·
@@ -83,7 +82,7 @@ On `/try` you can:
 - **Post a real call in Telegram:** click *Pair Telegram*, join the Callout group, send `/pair 123456`, then post a call. It lands on your card only, and the receipt replies in the group.
 - **Open the same session in the official simulator:** `npx @evenrealities/evenhub-simulator "https://callout-production-049324a2.up.railway.app/glasses/?s=<token>"`.
 
-**Built for several judges at once.** Each visitor gets a private sandbox: their own cards, session counters and daily limits, behind a random token. Every judge shares one Bybit Demo account, and Bybit keeps one position per coin. So each judge trades **their own coin** (ETH, SOL, XRP, DOGE, LINK, AVAX, ADA, BNB, TON, then BTC), and up to 9 judges can place orders at the same time without touching each other's position. Sample calls use the judge's coin at its live price.
+**Built for several judges at once.** Each visitor gets a private sandbox: their own cards, session counters and daily limits, behind a random token. Every judge shares one Bybit Demo account, and Bybit keeps one position per coin. So each judge trades **their own coin** (ETH, SOL, XRP, DOGE, LINK, AVAX, ADA, BNB, TON), and 9 judges can place orders at the same time without touching each other's position. BTC is kept for the owner's own session and is only handed to a judge if all nine coins are busy. Sample calls use the judge's coin at its live price.
 
 **Judge safety caps, enforced in the backend:**
 - $100 orders.
@@ -139,7 +138,7 @@ Telegram group ──► Callout backend ─────────────
 | Card | What you see | Tap | Double-tap | Voice |
 |---|---|---|---|---|
 | Home / session | `CALLOUT · session on · 1 group` · `37 muted · 1 for you` · calls that expired while away · last result | none | exit | mic off |
-| Call (ready) | sender (allowlisted), side/symbol/entry, SL/TP, R:R, live price and distance from call, caller record, expiry | **Place $200 demo** | skip | "half size", "full size", "set stop 59.2k", "place it"\*, "skip", "next" |
+| Call (ready) | sender (allowlisted), side/symbol/entry, SL/TP, R:R, live price and distance from call, caller record, expiry | **Place $200 demo** (default; $100 in the judge sandbox) | skip | "half size", "full size", "set stop 59.2k", "place it"\*, "skip", "next" |
 | Blocked | parsed values, raw text, factual flags such as `contains link · says "guaranteed"` or `price 4.1% from call` | skip (only option) | skip | "skip", "set stop 59k" (checks re-run) |
 | Unsure | raw text + `Couldn't read this clearly` (no trade button) | skip | skip | "skip" |
 | Holding | `"Taking profit on BTC"` · `Your BTC long 0.003 · +1.2%` | **Close (reduce-only)** | keep | "close it"\*, "keep it" |
@@ -149,6 +148,21 @@ Telegram group ──► Callout backend ─────────────
 \* Voice only selects Place and Close; a tap confirms. The bottom line of every card shows what the mic is doing (`mic · say: half size · set stop 59k · skip`) or what the last command did (`mic · Stop set to 59.7k (yours) · tap to place`).
 
 Swipe moves between cards. Taps are ignored for 1 second after the screen changes, so a card that appears just as you tap can't be placed by accident. Labels are neutral: no ✓, and no "good" or "bad".
+
+## Telegram integration
+
+Telegram is where calls come from and where proof goes back. Everything Callout does with it, in one place:
+
+| | |
+|---|---|
+| **Reads only what you choose** | Messages count only from allowlisted groups (`TELEGRAM_ALLOWED_CHAT_IDS`) and allowlisted callers (`TELEGRAM_ALLOWED_SENDER_IDS`). Callers are matched by Telegram **user ID**, not by name, so a look-alike name is a different sender. Anonymous admins and channel posts are matched by their `sender_chat` ID, so calls posted "as the group" or in a channel work too. Everyone else is only counted as noise. |
+| **Edits are handled** | An edited message is read again and replaces its pending card. It never changes an order that is already counting down or placed. |
+| **Linking a person: `/pair`** | On the hosted demo, a judge gets a 6-digit code on `/try` and sends `/pair 123456` in the group. From then on, calls that person posts land on their own glasses session only, and the bot confirms the link in the group. |
+| **Receipts in the thread** | After a fill, the bot replies directly under the original call: symbol, side, size, fill price and the order ID's last 8 characters (the form Bybit's Order History shows), marked "Bybit Demo (not real money)" and "Not financial advice". Reduce-only closes get a receipt too. |
+| **Reliable delivery** | Hosted, the bot runs on a webhook protected by a secret token. Duplicate updates are dropped by `update_id`, and locally it can use polling instead (`npm run tg:unhook`). |
+| **The privacy-mode gotcha** | With Group Privacy on, a bot only sees commands, never ordinary messages. Run `/setprivacy` → **Disable** in @BotFather, then **remove the bot from the group and add it back**: Telegram only applies the change after a re-add. At startup Callout logs whether privacy is on. |
+
+**What Callout writes back to Telegram, and what it never writes.** It posts exactly two kinds of message: the **order receipt** (for an opened order and for a reduce-only close), as a reply to the call, and **`/pair` replies** (linked, code expired, or judge sessions paused). It never posts that a call was blocked, never comments on a caller, and never forwards calls. That is a design choice: Callout acts only on the user's own confirmed decision, so posting "this call is blocked" into a shared group would be public trading advice, and noise for everyone else. Checks and reasons stay private, on the user's glasses.
 
 ## Voice
 
@@ -192,7 +206,7 @@ Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). *
 
 | Risk | What Callout does |
 |---|---|
-| The AI recommends or sizes trades | The LLM only *extracts* values. Size comes from settings (default $200), with a configurable cap and a hard $1,000 cap in code. |
+| The AI recommends or sizes trades | The LLM only *extracts* values. Size comes from settings (default $200; $100 in the judge sandbox), with a configurable cap and a hard $1,000 cap in code. |
 | Prompt injection / hostile members | All checks run in code on the LLM's output. Every entry/SL/TP must be traceable to numbers written in the message, so invented values are blocked. |
 | Impersonation | Sender allowlist by Telegram user ID (or `sender_chat` ID for anonymous admins and channel posts). Everyone else is only ever counted as noise. |
 | Stale trades | Calls expire after 15 min. The live price is re-checked at tap **and** again when the cancel window ends. |
@@ -341,7 +355,7 @@ Nothing in this repository was written before Nov 23. The git history starts on 
 
 1. **Physical G2 testing**, including voice on the glasses' mic with its speaker detection.
 2. **User accounts on the hosted backend**: sign-in, each user's own Bybit keys (encrypted), and their own groups, building on the per-session tokens and Telegram `/pair` that already run in the hosted demo.
-3. **Telegram user-account login** (MTProto) to read channels you follow but don't run.
+3. **Telegram user-account login** (MTProto) to read channels you follow but don't run, and a **private session summary by DM** (calls seen, what was blocked and why, orders placed), so each user gets a written record while the group stays clean.
 4. **Partial take-profit and multiple targets**: "secure 50%" on holding cards, all TPs attached to the order.
 5. **Verified caller records** built from real observed calls (replacing the synthetic demo data), shared across users who opt in.
 6. **Real-exchange execution** after the licensing and legal review above.
@@ -360,4 +374,4 @@ Nothing in this repository was written before Nov 23. The git history starts on 
 
 **Why not open source (yet).** The defensible asset is the record of calls Callout has observed (see Business), and the code is the engine that builds it. The code is fully public so judges can read it, run it and verify every claim here; reuse is by permission for now.
 
-Copyright (c) 2026 datharnu. **All rights reserved.** The code is public so it can be evaluated for the Heads Up hackathon: you may view it and run it to evaluate the submission, but not copy, modify or redistribute it without written permission. Template-derived files in `glasses/` keep their MIT license ([notice](glasses/THIRD_PARTY_NOTICES.md)). See [LICENSE](LICENSE).
+[MIT](LICENSE) © 2026 datharnu. Template-derived files in `glasses/` keep the Even Hub template's own MIT notice ([notice](glasses/THIRD_PARTY_NOTICES.md)). The logos in `web/public/brand/partners/` are trademarks of their owners and are not covered by this license ([sources](web/public/brand/partners/SOURCES.md)).

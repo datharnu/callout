@@ -67,7 +67,7 @@ export function Footer() {
         </div>
       </div>
       <div className="wrap inner footer-base t-small">
-        <span>© 2026 datharnu. All rights reserved.</span>
+        <span>© 2026 datharnu · MIT license</span>
         <span className="mono">Bybit Demo · Telegram · Even Realities G2</span>
       </div>
     </footer>

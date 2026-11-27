@@ -42,8 +42,8 @@ and receipts reply in the group. Unpaired senders are ignored, as before.
 ## Judge safety caps (backend-enforced)
 
 - Judges share the owner's Bybit Demo account, which keeps one position per coin. So each judge gets their own coin
-  (ETH, SOL, XRP, DOGE, LINK, AVAX, ADA, BNB, TON, BTC last): up to ~9 judges trade at the same time without sharing a
-  position. One open position per judge and per coin; each is closed reduce-only automatically after 120 s. Sample
+  (ETH, SOL, XRP, DOGE, LINK, AVAX, ADA, BNB, TON): 9 judges trade at the same time without sharing a position. BTC is
+  kept for the owner's session and only handed to a judge when all nine are busy. One open position per judge and per coin; each is closed reduce-only automatically after 120 s. Sample
   calls use the judge's coin at its live price (`POST /api/judge/sample { kind, coin? }`).
 - Per sandbox: 3 orders per day, 30 sample calls per hour, 40 voice commands per hour.
 - Global daily ceilings on parser (LLM) and speech-to-text calls; when reached, cards say so and taps still work.
