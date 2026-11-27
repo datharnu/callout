@@ -40,7 +40,7 @@ function toIncoming(ctx: Context, edited: boolean): IncomingMessage | undefined 
 }
 
 /** The group judges join (title read from Telegram at startup; invite link from .env). */
-export const group: { title: string; inviteUrl?: string } = { title: '', inviteUrl: process.env.TELEGRAM_GROUP_INVITE_URL?.trim() || undefined }
+export const group: { title: string; inviteUrl?: string; bot?: string } = { title: '', inviteUrl: process.env.TELEGRAM_GROUP_INVITE_URL?.trim() || undefined }
 
 /** `/pair 123456` (also `/pair@CalloutBot 123456`) in an allowlisted group links the sender to a judge session. */
 async function handlePair(ctx: Context, msg: IncomingMessage): Promise<boolean> {
@@ -138,6 +138,7 @@ export function registerTelegramWebhook(app: FastifyInstance) {
 
 export async function startTelegram(): Promise<void> {
   const me = await bot.api.getMe()
+  group.bot = me.username // for one-tap pairing links: t.me/<bot>?start=pair-123456
   const chatId = [...config.allowedChatIds][0]
   if (chatId) group.title = await bot.api.getChat(Number(chatId)).then(c => ('title' in c ? c.title ?? '' : '')).catch(() => '')
   console.log(`[telegram] @${me.username} · privacy ${me.can_read_all_group_messages ? 'off' : 'ON (bot only sees commands!)'}`)

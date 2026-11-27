@@ -573,6 +573,7 @@ function TelegramRow({ push }: { push: (t: string, tone?: LogLine['tone']) => vo
   const linked = status?.linked ? (status.telegram ?? 'your Telegram account') : null
   const invite = pair?.group?.inviteUrl ?? status?.group?.inviteUrl
   const groupName = pair?.group?.title || status?.group?.title || 'the Callout group'
+  const bot = pair?.bot ?? status?.bot
 
   useEffect(() => {
     pairStatus().then(setStatus).catch(() => {})
@@ -595,7 +596,6 @@ function TelegramRow({ push }: { push: (t: string, tone?: LogLine['tone']) => vo
     setErr(null)
     try { setPair(await startPair()) } catch (e) { setErr(e instanceof Error ? e.message : String(e)) }
   }
-  const stage = linked ? 3 : pair ? 2 : 1
   return (
     <details className={`row row-tg ${linked ? 'linked' : ''}`} onToggle={revealOnOpen}>
       <summary>
@@ -606,24 +606,21 @@ function TelegramRow({ push }: { push: (t: string, tone?: LogLine['tone']) => vo
       <p className="t-small" style={{ marginBottom: 8 }}>Post a trade call in our Telegram group and it shows up on these glasses, like a real call would.</p>
       <p className="t-small tg-dm">Or check any call privately: forward it to <a className="link" href="https://t.me/callout8_bot" target="_blank" rel="noreferrer">@callout8_bot</a> and it replies with what it read, the live price and any scam signs. Read-only. Once paired, ask it for <code>/summary</code>, <code>/rules</code>, <code>/setrule maxTradesPerDay 1</code> and <code>/audit</code>.</p>
       <ol className="tg-steps">
-        <li className={stage > 1 ? 'done' : 'now'}>
+        <li className={linked ? 'done' : 'now'}>
           <span className="tg-n">1</span>
           <div className="tg-body">
-            <b>Join the group</b>
-            {invite
-              ? <a className="btn btn-tg btn-sm" href={invite} target="_blank" rel="noreferrer"><TelegramIcon size={16} /> Open {groupName}</a>
-              : <span className="t-small">{groupName}</span>}
-          </div>
-        </li>
-        <li className={stage > 2 ? 'done' : stage === 2 ? 'now' : ''}>
-          <span className="tg-n">2</span>
-          <div className="tg-body">
-            <b>Send your code there</b>
+            <b>Link your Telegram</b>
             {linked ? (
               <span className="tg-ok"><span className="dot" /> Connected</span>
             ) : pair ? (
               <>
                 <span className="t-small waiting"><span className="spinner" /> Waiting for it…</span>
+                {bot && (
+                  <a className="btn btn-tg btn-sm" href={`https://t.me/${bot}?start=pair-${pair.code}`} target="_blank" rel="noreferrer">
+                    <TelegramIcon size={16} /> Pair in one tap
+                  </a>
+                )}
+                <span className="t-small">{bot ? <>or send this to <b>@{bot}</b> or in the group:</> : 'Send this in the group:'}</span>
                 <CopyBox text={pair.command ?? `/pair ${pair.code}`} big />
               </>
             ) : (
@@ -631,10 +628,19 @@ function TelegramRow({ push }: { push: (t: string, tone?: LogLine['tone']) => vo
             )}
           </div>
         </li>
-        <li className={stage === 3 ? 'now' : ''}>
+        <li className={linked ? 'now' : ''}>
+          <span className="tg-n">2</span>
+          <div className="tg-body">
+            <b>Join the group</b>
+            {invite
+              ? <a className="btn btn-tg btn-sm" href={invite} target="_blank" rel="noreferrer"><TelegramIcon size={16} /> Open {groupName}</a>
+              : <span className="t-small">{groupName}</span>}
+          </div>
+        </li>
+        <li className={linked ? 'now' : ''}>
           <span className="tg-n">3</span>
           <div className="tg-body">
-            <b>Post a trade call</b>
+            <b>Post a trade call there</b>
             {status?.example
               ? <CopyBox text={status.example} wrap />
               : <span className="t-small">For example “LONG ETH entry … SL … TP …” near the live price.</span>}

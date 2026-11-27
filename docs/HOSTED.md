@@ -37,10 +37,10 @@ sandbox is configured from `.env` (allowlisted Telegram group + senders), exactl
 | POST | `/api/cards/:id/:action` | | `action` ∈ confirm, cancel, skip, dismiss → card view. `confirm?rev=N`: the card revision the glasses showed; a different revision (the size or stop changed since) → `409` |
 | POST | `/api/cards/:id/voice` | raw 16 kHz s16le mono PCM (`application/octet-stream`) | `{ heard, commands, note, navigate?, card }` |
 | POST | `/api/judge/sample` | `{ kind }`, kind ∈ `clean`, `scam`, `impostor`, `vague`, `far`, `holding`, `chatter` | the ingest result (`{ outcome, card? , reason? }`) |
-| POST | `/api/pair` | | `{ code, expiresAt, group: { title, inviteUrl? } }`: a 6-digit code for this sandbox |
+| POST | `/api/pair` | | `{ code, expiresAt, group: { title, inviteUrl? }, bot? }`: a 6-digit code for this sandbox; `bot` is the bot's username for the one-tap link `t.me/<bot>?start=pair-<code>` |
 | GET | `/api/pair` | | `{ linked: boolean, telegram?: string, group: { title, inviteUrl? }, example?: string }`: `example` is a ready-to-post call on the judge's own coin at its live price |
 
-Telegram: in the Callout group, a judge sends `/pair 123456`. The bot links that Telegram user to the sandbox. From then on,
+Telegram: a judge opens `t.me/<bot>?start=pair-123456` (one tap, private chat), or sends `/pair 123456` to the bot or in the Callout group. The bot links that Telegram user to the sandbox. From then on,
 calls that user posts in the group become cards **in that sandbox only** (that user is the sandbox's allowlisted caller),
 and receipts reply in the group. Unpaired senders are ignored, as before.
 

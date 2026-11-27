@@ -284,6 +284,7 @@ export async function startServer() {
     return {
       code: p.code, expiresAt: p.expiresAt, command: `/pair ${p.code}`,
       group: { title: group.title, ...(group.inviteUrl ? { inviteUrl: group.inviteUrl } : {}) },
+      ...(group.bot ? { bot: group.bot } : {}),
     }
   })
   // Pair status, plus what the Telegram panel shows: the group to join and a ready-to-post example call
@@ -296,6 +297,7 @@ export async function startServer() {
       linked: !!sb.telegram,
       ...(sb.telegram ? { telegram: sb.telegram.name } : {}),
       group: { title: group.title, ...(group.inviteUrl ? { inviteUrl: group.inviteUrl } : {}) },
+      ...(group.bot ? { bot: group.bot } : {}),
       ...(example ? { example } : {}),
     }
   })

@@ -9,7 +9,9 @@
 import type { Context } from 'grammy'
 import { checkOnly } from './pipeline.js'
 import { config } from './config.js'
-import { JUDGE, linkedTo, owner, ownerTelegramId, OWNER_SETTING_LIMITS, setOwnerSetting, type Sandbox } from './sandbox.js'
+import { JUDGE, linkedTo, owner, ownerTelegramId, OWNER_SETTING_LIMITS, redeemPairCode, setOwnerSetting, type Sandbox } from './sandbox.js'
+import { judgesPaused } from './pause.js'
+import { notePairFailure, pairTriesLeft } from './pair-guard.js'
 import { takeBudget } from './budget.js'
 import { recordFor } from './track.js'
 import { currentStats, startOfUtcDay } from './rules.js'
@@ -30,7 +32,7 @@ const HELP = [
   '/setrule maxTradesPerDay 1 · change one (judges can tighten their own)',
   '/audit · your last decisions',
   '',
-  'Judges: pair first with /pair <code> in the Callout group (code on the Try page or the glasses).',
+  'Judges: pair first with /pair <code> here (code on the Try page or the glasses), or tap "Pair in one tap" on the Try page.',
   '',
   'Try it live: https://callout-production-049324a2.up.railway.app/try/',
 ].join('\n')
@@ -69,6 +71,13 @@ export async function handlePrivate(ctx: Context): Promise<void> {
   const [cmd, ...args] = text.split(/\s+/)
   const command = cmd!.startsWith('/') ? cmd!.slice(1).split('@')[0]!.toLowerCase() : ''
 
+  // One-tap pairing: the Try page links to t.me/<bot>?start=pair-123456, which arrives here as "/start pair-123456".
+  const startCode = command === 'start' ? args[0]?.match(/^pair-(\d{6})$/)?.[1] : undefined
+  if (startCode) return void (await ctx.reply(pairHere(ctx, userId, startCode)))
+  if (command === 'pair') {
+    const code = args[0]?.match(/^(\d{6})$/)?.[1]
+    return void (await ctx.reply(code ? pairHere(ctx, userId, code) : 'Send /pair with the 6-digit code from the Try page or the glasses, for example /pair 123456.'))
+  }
   if (command === 'start' || command === 'help') return void (await ctx.reply(HELP, { link_preview_options: { is_disabled: true } }))
   if (command === 'summary') return void (await ctx.reply(await summary(userId)))
   if (command === 'rules' || command === 'setrule' || command === 'audit') {
@@ -77,7 +86,6 @@ export async function handlePrivate(ctx: Context): Promise<void> {
     const text = command === 'rules' ? rulesText(sb) : command === 'setrule' ? setRule(sb, args) : auditText(sb)
     return void (await ctx.reply(text))
   }
-  if (command === 'pair') return void (await ctx.reply('Send /pair with your code in the Callout group, not here. The group link is on the Try page and on the glasses.'))
   if (command) return void (await ctx.reply(`Unknown command. ${HELP.split('\n').slice(2, 3).join('')}\n\n/help for the list.`))
 
   // Anything else: a call to check.
@@ -88,7 +96,26 @@ export async function handlePrivate(ctx: Context): Promise<void> {
   await ctx.reply(await checkText(text, from, ctx.msg ? hiddenLinks(ctx.msg) : []), { reply_parameters: { message_id: ctx.msg!.message_id, allow_sending_without_reply: true } })
 }
 
-const NOT_PAIRED = 'Your rules and decisions belong to a Callout session. Open the Try page (or Callout on G2), get a code, and send /pair <code> in the Callout group. Then try /rules, /setrule maxTradesPerDay 1 and /audit here.\n\nhttps://callout-production-049324a2.up.railway.app/try/'
+function pairHere(ctx: Context, userId: string, code: string): string {
+  const who = `dm:${userId}`
+  if (pairTriesLeft(who) <= 0) return 'Too many wrong codes. Please wait 10 minutes, then get a fresh code.'
+  if (judgesPaused()) return 'Callout judge sessions are paused right now. Please check back later.'
+  const name = ctx.from?.username ? `@${ctx.from.username}` : (ctx.from?.first_name ?? 'you')
+  const sb = redeemPairCode(code, userId, name)
+  audit('pair', { chatId: 'private', senderId: userId, ok: !!sb, sandbox: sb?.id })
+  if (!sb) {
+    notePairFailure(who)
+    return 'That code did not match or has expired. Get a new one on the Try page (or the glasses) and try again.'
+  }
+  return [
+    `Linked ${name} to your Callout demo session.`,
+    '',
+    'Here, privately: /rules, /setrule maxTradesPerDay 1, /audit, /summary, or forward me any call to check it.',
+    'To send a call to your glasses, post it in the Callout group (the link is on the Try page and the glasses). Demo money only.',
+  ].join('\n')
+}
+
+const NOT_PAIRED = 'Your rules and decisions belong to a Callout session. Open the Try page (or Callout on G2), get a code, and send /pair <code> here (or tap "Pair in one tap" on the Try page). Then try /rules, /setrule maxTradesPerDay 1 and /audit here.\n\nhttps://callout-production-049324a2.up.railway.app/try/'
 
 /** The owner's session, or the judge session this Telegram user paired most recently. */
 function sessionOf(userId: string): Sandbox | undefined {

@@ -16,9 +16,9 @@ Open **https://callout-production-049324a2.up.railway.app/try/**
 
 On the same page, open **Connect your Telegram**:
 
-1. **Join the group** ("Open A'ska & Callout").
-2. **Get my code**, then send `/pair 123456` in the group. The bot confirms.
-3. Post the example call shown on the page. It appears on the glasses; tap to place it, and the receipt replies under your message in the group.
+1. **Get my code**, then **Pair in one tap**: Telegram opens a private chat with the bot, you press **Start**, and you're linked. (Or send `/pair 123456` to the bot or in the group.)
+2. **Join the group** ("Open A'ska & Callout").
+3. Post the example call shown on the page in the group. It appears on the glasses; tap to place it, and the receipt replies under your message in the group.
 
 **Also try a private chat with the bot** ([@callout8_bot](https://t.me/callout8_bot)): forward it any trade call and it replies privately with what it read, how far the live price is, any scam signs and the caller's record. Once paired, your session's rules live there too:
 

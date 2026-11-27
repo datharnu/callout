@@ -113,8 +113,8 @@ export interface CardLite {
   record?: { seen: number; tp: number; sl: number; open: number; synthetic?: boolean } | null
 }
 export interface StateLite { now: number; session: { muted: number; forYou: number; expired: number; last: string }; cards: CardLite[] }
-export interface PairStart { code: string; expiresAt: number | string; command?: string; group?: { title?: string; inviteUrl?: string } }
-export interface PairStatus { linked: boolean; telegram?: string; group?: { title?: string; inviteUrl?: string }; example?: string }
+export interface PairStart { code: string; expiresAt: number | string; command?: string; group?: { title?: string; inviteUrl?: string }; bot?: string }
+export interface PairStatus { linked: boolean; telegram?: string; group?: { title?: string; inviteUrl?: string }; example?: string; bot?: string }
 export type SampleKind = 'clean' | 'scam' | 'impostor' | 'vague' | 'far' | 'holding' | 'chatter'
 
 export const getState = () => api<StateLite>('/api/state')
