@@ -12,7 +12,8 @@
 </p>
 
 <p align="center">
-  <a href="docs/media/Callout-demo.mp4"><img alt="Demo video" src="https://img.shields.io/badge/demo%20video-2:08-1F6B45?style=flat-square"></a>
+  <a href="https://youtu.be/EQE6fJ02oIU"><img alt="Demo video" src="https://img.shields.io/badge/demo%20video-2:08-1F6B45?style=flat-square"></a>
+  <a href="https://callout-production-049324a2.up.railway.app/try/"><img alt="Try it live" src="https://img.shields.io/badge/try%20it%20live-browser%20G2%20preview-0E7C86?style=flat-square"></a>
   <a href="#proof-one-real-order-three-places"><img alt="Proof" src="https://img.shields.io/badge/proof-same%20order%20ID%20in%203%20places-D8920F?style=flat-square"></a>
   <a href="#accuracy"><img alt="Unsafe one-tap cards" src="https://img.shields.io/badge/unsafe%20one--tap%20cards-0%20%2F%20269-C93D25?style=flat-square"></a>
   <a href="#voice"><img alt="Risky voice misfires" src="https://img.shields.io/badge/risky%20voice%20misfires-0%20%2F%20180-F5A524?style=flat-square"></a>
@@ -22,7 +23,8 @@
 </p>
 
 <p align="center">
-  <a href="docs/media/Callout-demo.mp4"><b>Demo video</b></a> ·
+  <a href="https://callout-production-049324a2.up.railway.app/try/"><b>Try it live</b></a> ·
+  <a href="https://youtu.be/EQE6fJ02oIU"><b>Demo video</b></a> ·
   <a href="#proof-one-real-order-three-places"><b>Proof</b></a> ·
   <a href="#how-it-works"><b>How it works</b></a> ·
   <a href="#safety"><b>Safety</b></a> ·
@@ -32,8 +34,8 @@
 </p>
 
 <p align="center">
-  <a href="docs/media/Callout-demo.mp4"><img src="docs/brand/demo-cover.png" alt="Watch the Callout demo (2:08)" width="760"></a><br>
-  <sub>▶ <a href="docs/media/Callout-demo.mp4">Watch the demo (2:08)</a>: recorded live in the Even Realities G2 simulator, on Bybit Demo with demo money</sub>
+  <a href="https://youtu.be/EQE6fJ02oIU"><img src="docs/brand/demo-cover.png" alt="Watch the Callout demo (2:08)" width="760"></a><br>
+  <sub>▶ <a href="https://youtu.be/EQE6fJ02oIU">Watch the demo (2:08)</a>: recorded live in the Even Realities G2 simulator, on Bybit Demo with demo money</sub>
 </p>
 
 Callout reads the Telegram trade-call groups you choose. It checks each call against the live market, the caller's track record and your own trading rules. Then it puts one card on your Even Realities G2 glasses. Tap once, or say "half size", "set stop 59.2k" or "skip", and the order goes to **Bybit Demo Trading**, with a cancel window, a real order ID on the glasses and a receipt posted back to Telegram.
@@ -45,7 +47,7 @@ Callout reads the Telegram trade-call groups you choose. It checks each call aga
 | **Tracks** | 03 Exchanges & Stocks (main) · 01 Messaging & News · Best Telegram integration |
 | **Who it's for** | Active crypto traders who follow Telegram call groups and trade on Bybit |
 | **Built with** | Even Hub SDK + simulator · grammY (Telegram bot) · Claude Haiku 5.5 (extraction only) · ElevenLabs Scribe (speech-to-text) · Bybit V5 API (Demo for orders, mainnet for prices) · Fastify · SQLite |
-| **Status** | Works end to end in the Even Hub simulator: a live Telegram call, adjusted by voice, placed on Bybit Demo from the glasses, with the receipt back in the group |
+| **Status** | Works end to end in the Even Hub simulator and **live at [callout-production-049324a2.up.railway.app](https://callout-production-049324a2.up.railway.app)**: a live Telegram call, adjusted by voice, placed on Bybit Demo from the glasses, with the receipt back in the group |
 | **Measured** | 0 unsafe one-tap cards in 269 labeled messages · 0 risky misfires in 180 spoken commands (6 accents) · 65 unit tests · see [Accuracy](#accuracy) and [Voice](#voice) |
 
 ---
@@ -68,6 +70,28 @@ A live call posted in Telegram, adjusted by voice, confirmed with a tap on the g
 |---|---|---|
 | ![glasses fill](screenshots/proof-glasses-order.png) | ![bybit order](screenshots/proof-bybit-order.png) | ![telegram receipt](screenshots/proof-telegram-receipt.png) |
 | `FILLED 0.001 BTC @ 60,584.1 · Order ...5b8cf401` | `Open Long · 60,584.10 · 0.001 BTC · 20:27:28 · 5b8cf401` | `Buy 0.001 @ 60,584.1 · Order ...5b8cf401` |
+
+## Try it live
+
+**[callout-production-049324a2.up.railway.app/try](https://callout-production-049324a2.up.railway.app/try/)**: no install and no account needed. The page runs the real Callout glasses app with a 576×288 G2 display, buttons for the touchpads and R1 ring, and your microphone. Everything goes through the same parser, checks and Bybit Demo orders as the simulator build.
+
+On `/try` you can:
+
+- **Send a sample call:** admin call, scam, impostor, vague message, stale price, taking profit, chatter. Each one runs through the same checks as a Telegram message.
+- **Act on the card:** tap (Enter), double-tap (Esc), swipe (↑/↓), or speak (M): "half size", "set stop 59.2k", "place it", "skip", "cancel".
+- **Place a real Bybit Demo order:** tap, 5-second cancel window, then a fill with a real order ID on the glasses.
+- **Post a real call in Telegram:** click *Pair Telegram*, join the Callout group, send `/pair 123456`, then post a call. It lands on your card only, and the receipt replies in the group.
+- **Open the same session in the official simulator:** `npx @evenrealities/evenhub-simulator "https://callout-production-049324a2.up.railway.app/glasses/?s=<token>"`.
+
+**Built for several judges at once.** Each visitor gets a private sandbox: their own cards, session counters and daily limits, behind a random token. Every judge shares one Bybit Demo account, and Bybit keeps one position per coin. So each judge trades **their own coin** (ETH, SOL, XRP, DOGE, LINK, AVAX, ADA, BNB, TON, then BTC), and up to 9 judges can place orders at the same time without touching each other's position. Sample calls use the judge's coin at its live price.
+
+**Judge safety caps, enforced in the backend:**
+- $100 orders.
+- One open position per judge, closed automatically with a reduce-only order after 2 minutes.
+- 3 orders per day.
+- Hourly limits on sample calls and voice commands.
+
+If two judges pick the same coin, the second one gets a clear message ("Another judge is trading SOL right now · try again in ~40 s, or use another coin"), never a shared position. Verified live: a Telegram call paired to a judge filled on Bybit Demo (order `…c8bf8df8`) and was closed reduce-only 2 minutes later (`…a1255735`). The API contract is in [`docs/HOSTED.md`](docs/HOSTED.md).
 
 ## The problem
 
