@@ -48,8 +48,16 @@ export function onTokenChange(fn: (t: string) => void) {
   return () => tokenListeners.delete(fn)
 }
 
-export async function ensureSandbox(force = false): Promise<Sandbox> {
-  if (!force && current) return current
+let inflight: Promise<Sandbox> | null = null
+/** One session per tab: concurrent callers share the same in-flight request. */
+export function ensureSandbox(force = false): Promise<Sandbox> {
+  if (!force && current) return Promise.resolve(current)
+  if (inflight) return inflight
+  inflight = createOrLoadSandbox(force).finally(() => { inflight = null })
+  return inflight
+}
+
+async function createOrLoadSandbox(force: boolean): Promise<Sandbox> {
   const stored = !force && !MOCK ? localStorage.getItem(KEY) : null
   if (stored) {
     current = { token: stored, sandboxId: '', expiresAt: '' }
@@ -97,7 +105,7 @@ export interface CardLite {
 }
 export interface StateLite { now: number; session: { muted: number; forYou: number; expired: number; last: string }; cards: CardLite[] }
 export interface PairStart { code: string; expiresAt: number | string; command?: string; group?: { title?: string; inviteUrl?: string } }
-export interface PairStatus { linked: boolean; telegram?: string }
+export interface PairStatus { linked: boolean; telegram?: string; group?: { title?: string; inviteUrl?: string }; example?: string }
 export type SampleKind = 'clean' | 'scam' | 'impostor' | 'vague' | 'far' | 'holding' | 'chatter'
 
 export const getState = () => api<StateLite>('/api/state')
@@ -120,7 +128,7 @@ export async function startPair(): Promise<PairStart> {
   return api('/api/pair', { method: 'POST' })
 }
 export async function pairStatus(): Promise<PairStatus> {
-  if (MOCK) return { linked: false }
+  if (MOCK) return { linked: false, group: { title: "A'ska & Callout", inviteUrl: 'https://t.me/' }, example: 'LONG ETH entry 1742 SL 1707 TP 1811' }
   return api('/api/pair')
 }
 

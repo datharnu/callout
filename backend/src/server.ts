@@ -113,9 +113,9 @@ function callPrice(v: number): string {
 }
 
 /** A sample message on this judge's own coin, at that coin's live price. */
-async function sampleMessage(kind: SampleKind, symbol: string): Promise<{ text: string; senderId: string; senderName: string }> {
+async function sampleMessage(kind: SampleKind, symbol: string, maxAgeMs = 2000): Promise<{ text: string; senderId: string; senderName: string }> {
   const coin = symbol.replace(/USDT$/, '')
-  const px = (await livePrice(symbol, 2000)) ?? 0
+  const px = (await livePrice(symbol, maxAgeMs)) ?? 0
   if (!(px > 0)) throw Object.assign(new Error(`no live ${coin} price right now`), { status: 503 })
   const call = (e: number) => `LONG ${coin} entry ${callPrice(e)} SL ${callPrice(e * 0.98)} TP ${callPrice(e * 1.04)}`
   const admin = { senderId: demoAdminId, senderName: '@CalloutAdmin' }
@@ -281,7 +281,19 @@ export async function startServer() {
       group: { title: group.title, ...(group.inviteUrl ? { inviteUrl: group.inviteUrl } : {}) },
     }
   })
-  app.get('/api/pair', async req => ({ linked: !!req.sandbox.telegram, ...(req.sandbox.telegram ? { telegram: req.sandbox.telegram.name } : {}) }))
+  // Pair status, plus what the Telegram panel shows: the group to join and a ready-to-post example call
+  // on this judge's own coin at its live price (the same shape as the "Admin call" sample).
+  app.get('/api/pair', async req => {
+    const sb = req.sandbox
+    const symbol = sb.kind === 'judge' ? coinFor(sb) : 'BTCUSDT'
+    const example = await sampleMessage('clean', symbol, 30_000).then(m => m.text).catch(() => undefined)
+    return {
+      linked: !!sb.telegram,
+      ...(sb.telegram ? { telegram: sb.telegram.name } : {}),
+      group: { title: group.title, ...(group.inviteUrl ? { inviteUrl: group.inviteUrl } : {}) },
+      ...(example ? { example } : {}),
+    }
+  })
 
   // Owner-only replay (scripts, e2e tests, video capture): bots can't see other bots' messages.
   if (config.demoMode) {

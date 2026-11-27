@@ -1,23 +1,23 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Footer, Nav, SplitHeading, Eyebrow, VIDEO } from '../components/ui'
+import { Footer, Nav, VIDEO } from '../components/ui'
 import { PageEnter, EASE } from '../components/motion'
 import {
   ensureSandbox, getState, getSettings, LimitError, MOCK, PausedError, onTokenChange, pairStatus, sendSample, startPair, waitForServer,
-  type CardLite, type JudgeSettings, type PairStart, type SampleKind, type StateLite,
+  type CardLite, type JudgeSettings, type PairStart, type PairStatus, type SampleKind, type StateLite,
 } from '../lib/api'
 import { startMic, type MicHandle } from '../lib/mic'
 
 type Input = 'click' | 'double_click' | 'up' | 'down'
 
 const SAMPLES: { kind: SampleKind; title: string; expect: string }[] = [
-  { kind: 'clean', title: 'Admin call', expect: 'A call near the live price → a tradable card. Say “half size, set stop …”, then tap.' },
-  { kind: 'scam', title: 'Scam call', expect: '“GUARANTEED 100% WIN” with a link → blocked, the reasons on the card.' },
-  { kind: 'impostor', title: 'Impostor', expect: 'The same call from someone not on the allowlist → ignored; the muted count goes up.' },
-  { kind: 'vague', title: 'Vague message', expect: '“might long soon, levels later” → never a tradable card.' },
-  { kind: 'far', title: 'Stale price', expect: 'Entry 10% away from the live Bybit price → blocked: “price … from call”.' },
-  { kind: 'holding', title: 'Taking profit', expect: 'Shows your open demo position → Close (reduce-only). Needs a filled call first.' },
-  { kind: 'chatter', title: 'Chatter', expect: '“gm everyone” → muted.' },
+  { kind: 'clean', title: 'Admin call', expect: 'Near live price → placeable' },
+  { kind: 'scam', title: 'Scam call', expect: '“100% WIN” + link → blocked' },
+  { kind: 'impostor', title: 'Impostor', expect: 'Look-alike name → ignored' },
+  { kind: 'vague', title: 'Vague message', expect: '“might long soon” → no card' },
+  { kind: 'far', title: 'Stale price', expect: '10% off live price → blocked' },
+  { kind: 'holding', title: 'Taking profit', expect: 'Closes your open position' },
+  { kind: 'chatter', title: 'Chatter', expect: '“gm everyone” → muted' },
 ]
 
 interface LogLine { at: number; text: string; tone?: 'amber' | 'green' }
@@ -45,18 +45,15 @@ export function Try() {
   }, [])
 
   return (
-    <div className="page">
+    <div className="page try-page">
       <Nav cta={false} />
       <PageEnter>
-        <section className="try-head">
-          <div className="wrap inner">
-            <Eyebrow>Try Callout</Eyebrow>
-            <SplitHeading as="h1" className="t-h2" first="The real glasses app, in your browser." second="Your own sandbox. Bybit Demo money only." />
-            <p className="t-body" style={{ marginTop: 14, maxWidth: 720 }}>
-              Below is the actual Callout glasses app running against the live backend. The G2 display, touchpads and ring are
-              stood in for by this page; everything else is the same code that runs in the Even Hub simulator.
-            </p>
-          </div>
+        <section className="wrap inner try-bar">
+          <h1 className="try-title"><span className="try-eyebrow">Try Callout</span>The real glasses app, in your browser.</h1>
+          <p className="t-small try-sub">
+            The same code as the Even Hub simulator build, on the live backend. Your own private sandbox ·{' '}
+            <b>Bybit Demo money only</b> · not financial advice.
+          </p>
         </section>
         <AnimatePresence>{waking !== null && !token && <WakeUp seconds={waking} />}</AnimatePresence>
         {err && (
@@ -158,14 +155,14 @@ function Workbench({ token }: { token: string }) {
 
   return (
     <section className="wrap inner workbench">
-      <div className="bench-left">
+      {/* 1 · the glasses */}
+      <div className="col col-device">
         <div className="device">
           <div className="device-top">
             <span className="t-mono">Even Realities G2 · browser preview</span>
             <span className={`mic-state ${glassesMic ? 'on' : ''}`}><i />{glassesMic ? 'glasses mic listening' : 'glasses mic off'}</span>
           </div>
           <G2Text text={display} />
-          <div className="device-hint t-mono">576 × 288 · rendered from the app’s own display text</div>
         </div>
 
         <div className="controls">
@@ -176,43 +173,59 @@ function Workbench({ token }: { token: string }) {
             <button className={`ctl ${pressed === 'down' ? 'down' : ''}`} onClick={() => send('down')} aria-label="Swipe down">Swipe ↓<kbd>↓</kbd></button>
           </div>
           <div className="microw">
-            <button className={`btn ${mic ? 'btn-green' : 'btn-outline'}`} onClick={toggleMic}>{mic ? 'Microphone on' : 'Turn on microphone'}<kbd>M</kbd></button>
+            <button className={`btn btn-sm ${mic ? 'btn-green' : 'btn-outline'}`} onClick={toggleMic}>{mic ? 'Microphone on' : 'Turn on microphone'}<kbd>M</kbd></button>
             <div className="meter" aria-hidden><span style={{ width: `${Math.round(level * 100)}%` }} /></div>
           </div>
           <p className="t-small">
             {micErr ?? (mic
-              ? glassesMic ? 'Speak to the card: “half size, set stop 59.2k”, “place it”, “skip”, “cancel”.' : 'The glasses listen only while a card is on screen. Send a sample call first.'
-              : 'The microphone is optional. Audio goes only to the speech-to-text service and is never stored.')}
+              ? glassesMic ? 'Speak to the card: “half size, set stop …”, “place it”, “skip”, “cancel”.' : 'The glasses listen only while a card is on screen. Send a call first.'
+              : 'Optional. Audio goes only to speech-to-text and is never stored.')}
           </p>
+        </div>
+
+        <div className="quick">
+          <div className="quick-h t-mono">Quick start</div>
+          <ol>
+            <li>Press <b>Admin call</b>. A card appears on the glasses.</li>
+            <li>Say <b>“half size”</b> with the mic on, or just press <b>Tap</b>.</li>
+            <li>Wait out the 5 s cancel window. The Bybit Demo order ID appears on the glasses.</li>
+          </ol>
         </div>
 
         {/* The real glasses app. Visually hidden; it draws through the display above. */}
         <iframe ref={frameRef} src={src} title="Callout glasses app" className="glasses-frame" allow="microphone" />
       </div>
 
-      <div className="bench-right">
-        <Limits />
-        <Panel title="Send a call" note="Each button posts a message into your sandbox’s pipeline: the same parser and checks a Telegram message goes through.">
+      {/* 2 · send calls */}
+      <div className="col col-calls">
+        <Panel step="1" title="Send a test call" note="Same reader and checks as a real Telegram message.">
           <SamplePad push={push} />
         </Panel>
         <PairPanel push={push} />
-        <Panel title="Run it in the official Even Hub simulator" note="The same app and your same sandbox, in the desktop simulator from Even Realities. Needs Node.js.">
-          <CopyBox text={simCmd} />
-        </Panel>
-        <Panel title="Live log" note="What your sandbox did, newest first.">
+      </div>
+
+      {/* 3 · what happened */}
+      <div className="col col-log">
+        <Limits />
+        <Panel title="Live log" note="What your sandbox did, newest first." grow>
           <div className="log">
             <AnimatePresence initial={false}>
-              {log.length === 0 && <div className="t-small">Nothing yet. Send a call.</div>}
+              {log.length === 0 && <div className="t-small log-empty">Nothing yet. Send a call, then tap.</div>}
               {log.map(l => (
                 <motion.div key={l.at + l.text} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: EASE }} className={`log-line ${l.tone ?? ''}`}>
-                  <span className="t-mono">{new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                  <span className="t-mono">{new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</span>
                   <span>{l.text}</span>
                 </motion.div>
               ))}
             </AnimatePresence>
           </div>
         </Panel>
-        <p className="t-small">Orders go to Bybit Demo Trading (demo money). One judge order is open at a time and it is closed automatically. Not financial advice. <a className="link" href={VIDEO}>Watch the 2:08 demo</a>.</p>
+        <details className="panel card sim">
+          <summary>Run it in the official Even Hub simulator</summary>
+          <p className="t-small">The same app and your same sandbox, in Even Realities’ desktop simulator. Needs Node.js.</p>
+          <CopyBox text={simCmd} />
+        </details>
+        <p className="t-small fineprint">One open demo order per judge, closed automatically after 2 minutes. <a className="link" href={VIDEO}>Watch the 2:08 demo</a>.</p>
       </div>
     </section>
   )
@@ -235,12 +248,12 @@ function G2Text({ text }: { text: string }) {
   )
 }
 
-function Panel({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
+function Panel({ title, note, step, grow, icon, children }: { title: string; note?: string; step?: string; grow?: boolean; icon?: ReactNode; children: ReactNode }) {
   return (
-    <div className="panel card">
-      <div className="panel-title">{title}</div>
-      {note && <p className="t-small" style={{ marginTop: 4 }}>{note}</p>}
-      <div style={{ marginTop: 14 }}>{children}</div>
+    <div className={`panel card ${grow ? 'grow' : ''}`}>
+      <div className="panel-title">{step && <span className="step">{step}</span>}{icon}{title}</div>
+      {note && <p className="t-small panel-note">{note}</p>}
+      <div className="panel-body">{children}</div>
     </div>
   )
 }
@@ -279,53 +292,102 @@ function SamplePad({ push }: { push: (t: string, tone?: LogLine['tone']) => void
   )
 }
 
+function TelegramIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg className="tg-icon" width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+      <circle cx="12" cy="12" r="12" fill="#2AABEE" />
+      <path fill="#fff" d="M5.4 11.7 17.6 7c.57-.2 1.06.14.88.98l-2.08 9.8c-.15.7-.57.87-1.16.54l-3.2-2.36-1.54 1.49c-.17.17-.31.31-.64.31l.23-3.26 5.93-5.36c.26-.23-.06-.36-.4-.13l-7.33 4.62-3.16-.99c-.69-.21-.7-.69.14-1.02Z" />
+    </svg>
+  )
+}
+
 function PairPanel({ push }: { push: (t: string, tone?: LogLine['tone']) => void }) {
   const [pair, setPair] = useState<PairStart | null>(null)
-  const [linked, setLinked] = useState<string | null>(null)
+  const [status, setStatus] = useState<PairStatus | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const linked = status?.linked ? (status.telegram ?? 'your Telegram account') : null
+  const invite = pair?.group?.inviteUrl ?? status?.group?.inviteUrl
+  const groupName = pair?.group?.title || status?.group?.title || 'the Callout group'
+
   useEffect(() => {
-    pairStatus().then(s => s.linked && setLinked(s.telegram ?? 'your Telegram account')).catch(() => {})
+    pairStatus().then(setStatus).catch(() => {})
   }, [])
+  // While a code is waiting, poll until the bot links it.
   useEffect(() => {
     if (!pair || linked) return
     const t = setInterval(async () => {
       try {
         const s = await pairStatus()
-        if (s.linked) {
-          setLinked(s.telegram ?? 'your Telegram account')
-          push(`Linked to ${s.telegram ?? 'Telegram'}. Calls you post in the group now land on your card.`, 'green')
-        }
+        setStatus(s)
+        if (s.linked) push(`Linked to ${s.telegram ?? 'Telegram'}. Calls you post in the group now land on your glasses.`, 'green')
       } catch {}
     }, 3000)
     return () => clearInterval(t)
   }, [pair, linked, push])
+  // Refresh now and then so the example's coin and price stay current.
+  useEffect(() => {
+    const t = setInterval(() => pairStatus().then(setStatus).catch(() => {}), 20_000)
+    return () => clearInterval(t)
+  }, [])
+
   async function start() {
     setErr(null)
     try { setPair(await startPair()) } catch (e) { setErr(e instanceof Error ? e.message : String(e)) }
   }
+
+  const stage = linked ? 3 : pair ? 2 : 1
   return (
-    <Panel title="Post a real call in Telegram" note="Link your Telegram account to this sandbox, then post a call in the Callout group. It lands on your card only, and the receipt replies in the thread.">
-      {linked ? (
-        <div className="paired"><span className="dot" /> Linked to <b>{linked}</b>. Post a call like <code>LONG BTC entry 60.6k SL 59.4k TP 63k</code>.</div>
-      ) : pair ? (
-        <div className="pairbox">
-          <div className="t-small">Send this in {pair.group?.title ? <b>{pair.group.title}</b> : 'the Callout group'}:</div>
-          <CopyBox text={pair.command ?? `/pair ${pair.code}`} big />
-          {pair.group?.inviteUrl && <a className="btn btn-outline btn-sm" href={pair.group.inviteUrl} target="_blank" rel="noreferrer">Join the group on Telegram</a>}
-          <div className="t-small waiting"><span className="spinner" /> Waiting for your message…</div>
-        </div>
-      ) : (
-        <button className="btn btn-solid btn-sm" onClick={start}>Get a pairing code</button>
-      )}
+    <Panel
+      step="2"
+      icon={<TelegramIcon />}
+      title="Or send one from your own Telegram"
+      note="Post a call in our group, see it on these glasses."
+    >
+      <ol className="tg-steps">
+        <li className={stage > 1 ? 'done' : stage === 1 ? 'now' : ''}>
+          <span className="tg-n">1</span>
+          <div className="tg-body">
+            <b>Join the group</b>
+            {invite
+              ? <a className="btn btn-tg btn-sm" href={invite} target="_blank" rel="noreferrer"><TelegramIcon size={16} /> Open {groupName}</a>
+              : <span className="t-small">{groupName}</span>}
+          </div>
+        </li>
+        <li className={stage > 2 ? 'done' : stage === 2 ? 'now' : ''}>
+          <span className="tg-n">2</span>
+          <div className="tg-body">
+            <b>Send your code there</b>
+            {linked ? (
+              <span className="tg-ok"><span className="dot" /> Connected as {linked}</span>
+            ) : pair ? (
+              <>
+                <span className="t-small waiting"><span className="spinner" /> Waiting for it…</span>
+                <CopyBox text={pair.command ?? `/pair ${pair.code}`} big />
+              </>
+            ) : (
+              <button className="btn btn-solid btn-sm" onClick={start}>Get my code</button>
+            )}
+          </div>
+        </li>
+        <li className={stage === 3 ? 'now' : ''}>
+          <span className="tg-n">3</span>
+          <div className="tg-body">
+            <b>Post a trade call</b>
+            {status?.example
+              ? <><CopyBox text={status.example} wrap />{linked && <span className="t-small">Post it in the group. It shows up on the glasses here; tap to place it.</span>}</>
+              : <span className="t-small">For example “LONG ETH entry … SL … TP …” near the live price.</span>}
+          </div>
+        </li>
+      </ol>
       {err && <p className="t-small" style={{ marginTop: 10, color: 'var(--red)' }}>{err}</p>}
     </Panel>
   )
 }
 
-function CopyBox({ text, big }: { text: string; big?: boolean }) {
+function CopyBox({ text, big, wrap }: { text: string; big?: boolean; wrap?: boolean }) {
   const [copied, setCopied] = useState(false)
   return (
-    <div className={`copybox ${big ? 'big' : ''}`}>
+    <div className={`copybox ${big ? 'big' : ''} ${wrap ? 'wrap' : ''}`}>
       <code>{text}</code>
       <button className="btn btn-outline btn-sm" onClick={() => { void navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1400) }}>{copied ? 'Copied' : 'Copy'}</button>
     </div>
@@ -349,8 +411,8 @@ function Limits() {
   const limitTags = Object.entries(s.limits ?? {}).map(([k, v]) => {
     // Backend reports remaining quota per key.
     const LABEL: Record<string, string> = {
-      samplesThisHour: 'sample calls left this hour', voiceThisHour: 'voice commands left this hour',
-      parse: 'parser calls left today (all judges)', stt: 'speech-to-text left today (all judges)',
+      samplesThisHour: 'test calls left this hour', voiceThisHour: 'voice commands left this hour',
+      parse: 'message reads left today, all judges', stt: 'voice transcriptions left today, all judges',
     }
     const label = LABEL[k] ?? k.replace(/([A-Z])/g, ' $1').toLowerCase()
     const val = typeof v === 'number' || typeof v === 'string' ? String(v)
@@ -362,7 +424,7 @@ function Limits() {
     <div className="panel card status">
       <div className="panel-title">Your sandbox</div>
       <div className="status-grid">
-        {s.sizeUsd !== undefined && <div><b>${s.sizeUsd}</b><span>order size (demo)</span></div>}
+        {s.sizeUsd !== undefined && <div><b>${s.sizeUsd}</b><span>order size</span></div>}
         {s.tradesToday !== undefined && <div><b>{s.tradesToday}{s.rules?.maxTradesPerDay ? `/${s.rules.maxTradesPerDay}` : ''}</b><span>orders today</span></div>}
         <div><b>{s.telegram?.linked ? (s.telegram.name ?? 'linked') : 'not linked'}</b><span>Telegram</span></div>
       </div>
