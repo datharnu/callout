@@ -49,8 +49,8 @@ Callout reads the Telegram trade-call groups you choose. It checks each call aga
 | **Who it's for** | Active crypto traders who follow Telegram call groups and trade on Bybit |
 | **Built with** | Even Hub SDK + simulator · grammY (Telegram bot) · Claude Haiku 5.5 (extraction only) · ElevenLabs Scribe (speech-to-text) · Bybit V5 API (Demo for orders, mainnet for prices) · Fastify · SQLite |
 | **Status** | Works end to end in the Even Hub simulator and **live at [callout-production-049324a2.up.railway.app](https://callout-production-049324a2.up.railway.app)**: a live Telegram call, adjusted by voice, placed on Bybit Demo from the glasses, with the receipt back in the group |
-| **Measured** | 0 unsafe one-tap cards in 269 labeled messages · 0 / 46 red-team messages got through · 0 risky misfires in 180 spoken commands (6 accents) · 88 unit tests, run on every push · every suite in the [test report](docs/TEST-REPORT.md) |
-| **Everything is real** | The demo video, the screenshots and the order IDs come from live runs: the real Telegram bot and group, the official Even Hub simulator, and real Bybit Demo orders (the proof below shows one order ID in all three places). Nothing is mocked or staged |
+| **Measured** | 0 unsafe one-tap cards in 269 labeled messages · 0 / 46 messages in our red-team regression set got through · 0 risky misfires in 180 spoken commands (6 accents) · 88 unit tests, run on every push · every suite in the [test report](docs/TEST-REPORT.md) |
+| **What's real, what's synthetic** | **Real:** the Telegram bot, group and receipts; the Bybit Demo orders and their IDs (the proof below shows one order ID in all three places); the live Bybit prices; and the screens, captured from the official Even Hub simulator. **Synthetic, and labeled as such:** the caller track records (invented calls with real prices) and the `/try` sample calls. The `/try` page shows the real glasses app in a browser stand-in for G2, not the glasses themselves |
 
 ---
 
@@ -84,7 +84,7 @@ On `/try` you can:
 - **Send a sample call:** admin call, scam, impostor, vague message, stale price, taking profit, chatter. Each one runs through the same checks as a Telegram message.
 - **Act on the card:** tap (Enter), double-tap (Esc), swipe (↑/↓), or speak (M): "half size", "set stop 59.2k", "place it", "skip", "cancel".
 - **Place a real Bybit Demo order:** tap, 5-second cancel window, then a fill with a real order ID on the glasses.
-- **Post a real call in Telegram:** click *Pair Telegram*, join the Callout group, send `/pair 123456`, then post a call. It lands on your card only, and the receipt replies in the group.
+- **Post a real call in Telegram:** open *Connect your Telegram*, press **Get my code**, then **Pair in one tap** (or send `/pair 123456` to the bot). Join the Callout group and post a call there: it lands on your glasses only, and the receipt replies in the group. Or paste a call to the bot privately and press **Send to my glasses**.
 - **Open the same session in the official simulator:** `npx @evenrealities/evenhub-simulator "https://callout-production-049324a2.up.railway.app/glasses/?s=<token>"`.
 
 **Built for several judges at once.** Each visitor gets a private sandbox: their own cards, session counters and daily limits, behind a random token. Every judge shares one Bybit Demo account, and Bybit keeps one position per coin. So each judge trades **their own coin** (ETH, SOL, XRP, DOGE, LINK, AVAX, ADA, BNB, TON), and 9 judges can place orders at the same time without touching each other's position. BTC is kept for the owner's own session and is only handed to a judge if all nine coins are busy. Sample calls use the judge's coin at its live price.
@@ -216,7 +216,7 @@ Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). *
 | Risk | What Callout does |
 |---|---|
 | The AI recommends or sizes trades | The LLM only *extracts* values. Size comes from settings (default $200; $100 in the judge sandbox), with a configurable cap and a hard $1,000 cap in code. |
-| Prompt injection / hostile members | All checks run in code on the LLM's output. Every entry/SL/TP must be traceable to numbers written in the message, so invented values are blocked. Tested with a [red-team set](backend/eval/REDTEAM.md): 0 / 46 hostile messages got through. |
+| Prompt injection / hostile members | All checks run in code on the LLM's output. Every entry/SL/TP must be traceable to numbers written in the message, so invented values are blocked. Checked against our own [red-team regression set](backend/eval/REDTEAM.md) (0 / 46 got through after fixes); it covers known attack shapes, not new ones. |
 | A tap on something you didn't see | Every card carries a revision that goes up whenever the size or stop changes. The glasses send the revision they were showing with the tap; if a voice command changed the card after the screen was drawn, the tap is refused and the glasses say why. |
 | Disguised or hidden links | Links are found after undoing common disguises (`t . me`, `t[.]me`, "dot com", `hxxp`, zero-width and full-width characters), and link targets hidden behind text in Telegram are checked too. |
 | Impersonation | Sender allowlist by Telegram user ID (or `sender_chat` ID for anonymous admins and channel posts). Everyone else is only ever counted as noise. |
@@ -228,7 +228,7 @@ Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). *
 | Edits | An edited message replaces any pending card for it and is re-parsed. It never touches an order that is already counting down or placed. |
 | Voice | Voice can only *select* Place/Close (a tap confirms). Size and stop changes re-run every check. During the countdown, any unclear speech cancels. Commands are matched in code, not by an LLM. |
 | Secrets | Exchange, Telegram, Anthropic and ElevenLabs keys live only in the backend `.env` (gitignored). A pre-commit hook in `.githooks/` blocks any commit containing a value from `.env`; enable it with `git config core.hooksPath .githooks`. The glasses app holds no secrets. |
-| Privacy | Reads only allowlisted groups. Stores calls and orders, not chatter. Mic audio is never stored. Every card, state change, order and voice command (as text) goes to an audit log (`backend/logs/audit.jsonl`). |
+| Privacy | Reads only allowlisted groups. Stores calls and orders, not chatter. Mic audio is never stored. Every card, state change, order and voice command (as text) goes to an audit log (`backend/logs/audit.jsonl`). **Private chat:** a check of a forwarded or pasted message stores **no message text**, only who asked and the original sender's Telegram ID (in the audit log). A call sent on with **Send to my glasses** becomes a card and is logged like a group call (its text, in the audit log); the button's pending data is kept in memory for 15 minutes. There is no automatic deletion of the audit log yet; on the hosted demo it lives on the server's private volume. |
 
 ## Accuracy
 
@@ -247,7 +247,7 @@ Full report: [`backend/eval/VOICE_RESULTS.md`](backend/eval/VOICE_RESULTS.md). *
 - Tradable calls shown as tradable: 23/23. Non-allowlisted senders muted: 6/6.
 - The misses are cautious ones: two scam-worded calls and one call with its stop on the wrong side were read as "unsure", which is never tradable.
 
-**Red team** (`npm run eval:redteam`): 46 hostile messages, as if a caller's account were hacked: prompt injection, missing or absurd values, scam wording, disguised and hidden links. **0 / 46 got through.** The first run found 6 disguised-link gaps (`t . me`, `t[.]me`, "dot com", zero-width and full-width characters, a link hidden behind text); they were fixed in code and the main eval re-run with unchanged results. [`backend/eval/REDTEAM.md`](backend/eval/REDTEAM.md).
+**Red team** (`npm run eval:redteam`): a regression set of 46 hostile messages **we wrote ourselves**, as if a caller's account were hacked: prompt injection, missing or absurd values, scam wording, disguised and hidden links. The first run let **6** through (`t . me`, `t[.]me`, "dot com", zero-width and full-width characters, a link hidden behind text); we fixed them in code, and it now runs at **0 / 46**, with the main eval re-run unchanged. Because we wrote both the attacks and the fixes, this shows the known shapes stay blocked; it is **not** independent proof of safety against new attacks. [`backend/eval/REDTEAM.md`](backend/eval/REDTEAM.md).
 
 Full report: [`backend/eval/RESULTS.md`](backend/eval/RESULTS.md). **Caveat:** the set was written by the same team that wrote the parser prompt, and the parser was improved after seeing results on it. There is **no held-out slice**, so treat these numbers as a smoke test, not a benchmark.
 
@@ -311,7 +311,7 @@ VITE_CALLOUT_API=https://callout-production-049324a2.up.railway.app npm run pack
 npm run pack                                                                       # for your own backend on 127.0.0.1:8787
 ```
 
-The package (about 44 KB, SDK 0.0.16, Even app 2.2.10+) contains only the glasses app: no keys, no backend. The submitted build talks to the **hosted backend** (whitelisted in `app.json`, with `127.0.0.1:8787` for local use), so it works on its own on real G2 glasses:
+The package (about 44 KB, SDK 0.0.16, Even app 2.2.10+) contains only the glasses app: no keys, no backend. The submitted build talks to the **hosted backend** (whitelisted in `app.json`, with `127.0.0.1:8787` for local use), so it is built to run on its own on real G2 glasses. It has been verified in the official Even Hub simulator against the live backend, not yet on physical G2. What it does:
 
 1. On launch with no link, it starts its **own demo session** (the same kind `/try` gives a visitor: $100 Bybit Demo orders, 3 a day, auto-closed after 2 minutes).
 2. The home screen says **"Tap: send a sample call"**. A tap brings a call on that session's own coin at the live price, through the normal checks. Tap again to place it, and the order ID appears on the glasses.
@@ -395,7 +395,5 @@ Nothing in this repository was written before Nov 23. The git history starts on 
 
 
 ## License
-
-**Why not open source (yet).** The defensible asset is the record of calls Callout has observed (see Business), and the code is the engine that builds it. The code is fully public so judges can read it, run it and verify every claim here; reuse is by permission for now.
 
 [MIT](LICENSE) © 2026 datharnu. Template-derived files in `glasses/` keep the Even Hub template's own MIT notice ([notice](glasses/THIRD_PARTY_NOTICES.md)). The logos in `web/public/brand/partners/` are trademarks of their owners and are not covered by this license ([sources](web/public/brand/partners/SOURCES.md)).
